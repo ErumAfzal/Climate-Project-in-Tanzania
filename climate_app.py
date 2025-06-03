@@ -10,16 +10,27 @@ st.set_page_config(page_title="Climate Forecast for Tanzania", layout="centered"
 st.title("🌍 Climate Change Forecast - Tanzania (Africa Proxy)")
 
 @st.cache_data
+@st.cache_data
 def load_data():
     url = 'https://raw.githubusercontent.com/datasets/global-temp/master/data/monthly.csv'
     data = pd.read_csv(url)
-    data['Date'] = pd.to_datetime(data['Year'])
-    data.rename(columns={'Year': 'Date', 'Mean': 'Temperature'}, inplace=True)
-    data.dropna(inplace=True)
+
+    # Ensure 'Year' and 'Month' columns exist and create a proper datetime
+    if 'Year' in data.columns and 'Month' in data.columns:
+        data['Date'] = pd.to_datetime(data['Year'].astype(str) + '-' + data['Month'].astype(str).str.zfill(2))
+    else:
+        # If only 'Date' or something else is available, fall back or raise an error
+        raise ValueError("Required columns 'Year' and 'Month' not found in dataset")
+
+    data.rename(columns={'Mean': 'Temperature'}, inplace=True)
+    data.dropna(subset=['Temperature'], inplace=True)
+
     data = data.set_index('Date').resample('MS').mean().reset_index()
     data['Year'] = data['Date'].dt.year
     data['Month'] = data['Date'].dt.month
+
     return data[['Year', 'Month', 'Temperature']]
+
 
 df = load_data()
 
