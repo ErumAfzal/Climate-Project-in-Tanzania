@@ -13,8 +13,8 @@ st.title("🌍 Climate Change Forecast - Tanzania (Africa Proxy)")
 # Load and preprocess the data
 @st.cache_data
 def load_data():
-    url = 'https://raw.githubusercontent.com/datasets/global-temp/master/data/monthly.csv'
-    data = pd.read_csv(url)
+    url_1 = 'https://raw.githubusercontent.com/datasets/global-temp/master/data/monthly.csv'
+    data = pd.read_csv(url_1)
 
     # Ensure 'Date' column exists
     if 'Date' not in data.columns or 'Mean' not in data.columns:
