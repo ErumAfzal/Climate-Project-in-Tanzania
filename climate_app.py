@@ -1,9 +1,5 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, r2_score
 
 st.set_page_config(page_title="Tanzania Climate Analysis", layout="wide")
 st.title("🌍 Climate Change Analysis - Tanzania")
@@ -12,15 +8,27 @@ st.title("🌍 Climate Change Analysis - Tanzania")
 def load_data():
     url = "https://raw.githubusercontent.com/ErumAfzal/Climate-Project-in-Tanzania/main/chart.csv"
     df = pd.read_csv(url)
-    
-    # Ensure column names match expected
-    df = df.rename(columns={'AverageTemperature': 'Temperature'})
+
+    # Display available columns
+    st.write("Available columns:", df.columns.tolist())
+
+    # Rename columns for consistency
+    df.rename(columns={'Average Mean Surface Air Temperature': 'Temperature'}, inplace=True)
+
+    # Check for necessary columns
+    required_columns = ['Year', 'Temperature']
+    for col in required_columns:
+        if col not in df.columns:
+            st.error(f"Missing required column: {col}")
+            return pd.DataFrame()
 
     # Drop rows with missing values
-    df = df.dropna(subset=['Year', 'Temperature'])
+    df.dropna(subset=required_columns, inplace=True)
+
+    # Convert 'Year' to integer
     df['Year'] = df['Year'].astype(int)
-    
-    # Since we have only yearly data, create a dummy 'Month' column for modeling
+
+    # Add a dummy 'Month' column for modeling purposes
     df['Month'] = 6  # Assuming mid-year average
 
     return df
@@ -38,6 +46,10 @@ if not df.empty:
     # Train model
     features = df[['Year', 'Month']]
     target = df['Temperature']
+
+    from sklearn.ensemble import RandomForestRegressor
+    from sklearn.model_selection import train_test_split
+
     X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.2, random_state=42)
 
     model = RandomForestRegressor(n_estimators=100, random_state=42)
