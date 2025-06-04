@@ -4,7 +4,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 
 st.set_page_config(page_title="Tanzania Climate Analysis", layout="wide")
-st.title("🌍 Climate Change Analysis - Tanzania")
+st.title(" Climate Change Analysis - Tanzania")
 
 @st.cache_data
 def load_data():
