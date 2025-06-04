@@ -1,69 +1,119 @@
-# climate_app.py
-
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor
+import matplotlib.pyplot as plt
+import seaborn as sns
+import requests
+from io import StringIO
 from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, r2_score
+from statsmodels.tsa.seasonal import seasonal_decompose
 
-# Streamlit Page Config
-st.set_page_config(page_title="Climate Forecast for Tanzania", layout="centered")
-st.title("🌍 Climate Change Forecast - Tanzania (Africa Proxy)")
+# Configure Streamlit page
+st.set_page_config(page_title="Tanzania Climate Change Analysis", layout="wide")
+st.title("🌍 Climate Change Analysis - Tanzania (Africa Proxy)")
 
-# Load and preprocess the data
+# Load Data
 @st.cache_data
 def load_data():
-    url_1 = 'https://raw.githubusercontent.com/datasets/global-temp/master/data/monthly.csv'
-    data = pd.read_csv(url_1)
+    url = 'https://raw.githubusercontent.com/datasets/global-temp/master/data/monthly.csv'
+    response = requests.get(url)
+    data = pd.read_csv(StringIO(response.text))
+    return data
 
-    # Ensure 'Date' column exists
-    if 'Date' not in data.columns or 'Mean' not in data.columns:
-        raise ValueError("Required columns 'Date' and 'Mean' not found in dataset")
+data = load_data()
 
-    # Use only 'GCAG' source to avoid duplication
-    data = data[data['Source'] == 'GCAG']
+# Check required columns
+if 'Mean' in data.columns and 'Date' in data.columns or 'Year' in data.columns:
+    if 'Year' in data.columns:
+        data['Date'] = pd.to_datetime(data['Year'], errors='coerce')
+    else:
+        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
 
-    # Convert date and rename Mean
-    data['Date'] = pd.to_datetime(data['Date'])
     data.rename(columns={'Mean': 'Temperature'}, inplace=True)
-
-    # Drop missing values
-    data = data.dropna(subset=['Temperature'])
-
-    # Extract Year and Month
+    data = data[['Date', 'Temperature']].dropna()
+    data = data.set_index('Date').resample('MS').mean().reset_index()
     data['Year'] = data['Date'].dt.year
     data['Month'] = data['Date'].dt.month
+    data['Season'] = data['Month'].apply(lambda x: 'Dry' if x in [6,7,8,9] else 'Wet')
+else:
+    st.error("Required columns not found in dataset.")
+    st.stop()
 
-    return data[['Year', 'Month', 'Temperature']]
+# Show raw data
+if st.checkbox("🔍 Show Raw Data"):
+    st.write(data.head())
 
-# Load data
-df = load_data()
+# Exploratory Data Analysis
+st.subheader("📊 Temperature Trend Over Time")
+fig1, ax1 = plt.subplots(figsize=(14, 6))
+ax1.plot(data['Date'], data['Temperature'], label='Monthly Avg Temperature', color='orange')
+ax1.set_title('Temperature Trend (Africa Region Proxy)')
+ax1.set_xlabel('Date')
+ax1.set_ylabel('Temperature (°C)')
+ax1.grid(True)
+ax1.legend()
+st.pyplot(fig1)
 
-# Train model
-features = df[['Year', 'Month']]
-target = df['Temperature']
+# Seasonal Decomposition
+st.subheader("🌀 Seasonal Decomposition")
+data_indexed = data.set_index('Date').asfreq('MS')
+decomp = seasonal_decompose(data_indexed['Temperature'], model='additive', period=12)
+fig2 = decomp.plot()
+st.pyplot(fig2)
+
+# Correlation Heatmap
+st.subheader("📈 Correlation Heatmap")
+fig3, ax3 = plt.subplots()
+corr = data[['Temperature', 'Year', 'Month']].corr()
+sns.heatmap(corr, annot=True, cmap='coolwarm', ax=ax3)
+st.pyplot(fig3)
+
+# Machine Learning
+st.subheader("🤖 Temperature Prediction Models")
+
+features = data[['Year', 'Month']]
+target = data['Temperature']
 X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.2, random_state=42)
 
-model = RandomForestRegressor(n_estimators=100, random_state=42)
-model.fit(X_train, y_train)
+# Linear Regression
+lr = LinearRegression()
+lr.fit(X_train, y_train)
+lr_preds = lr.predict(X_test)
 
-# Sidebar Inputs
-st.sidebar.header("User Input")
-year = st.sidebar.slider('Select Year', 2025, 2035, 2025)
-month = st.sidebar.slider('Select Month', 1, 12, 1)
+# Random Forest
+rf = RandomForestRegressor(n_estimators=100, random_state=42)
+rf.fit(X_train, y_train)
+rf_preds = rf.predict(X_test)
 
-# Predict
-prediction = model.predict([[year, month]])[0]
+# Evaluation Metrics
+st.markdown("**Model Evaluation Metrics**")
+col1, col2, col3 = st.columns(3)
+col1.metric("Linear Reg. RMSE", f"{np.sqrt(mean_squared_error(y_test, lr_preds)):.3f}")
+col2.metric("RF RMSE", f"{np.sqrt(mean_squared_error(y_test, rf_preds)):.3f}")
+col3.metric("RF R² Score", f"{r2_score(y_test, rf_preds):.3f}")
 
-# Display result
-st.subheader("📈 Forecasted Temperature")
-st.write(f"Predicted Avg Temperature for **{year}-{month:02d}**: 🌡️ **{prediction:.2f} °C**")
+# Forecast Future Temps
+st.subheader("🔮 Forecast Future Temperatures (2025–2030)")
 
-# Historical trends checkbox
-if st.checkbox("📊 Show Historical Temperature Trends"):
-    avg_annual = df.groupby('Year')['Temperature'].mean().reset_index()
-    st.line_chart(avg_annual.set_index('Year'))
+future_years = pd.DataFrame({
+    'Year': list(range(2025, 2031)) * 12,
+    'Month': sorted(list(range(1, 13)) * 6)
+})
+future_preds = rf.predict(future_years)
+future_dates = pd.date_range(start='2025-01', end='2030-12', freq='MS')
+
+fig4, ax4 = plt.subplots(figsize=(14, 6))
+ax4.plot(future_dates, future_preds, label='Predicted Temp (2025–2030)', color='green')
+ax4.set_title('Forecasted Monthly Temperatures (Africa Region Proxy)')
+ax4.set_xlabel('Year')
+ax4.set_ylabel('Predicted Temperature (°C)')
+ax4.grid(True)
+ax4.legend()
+st.pyplot(fig4)
 
 # Footer
 st.markdown("---")
-st.caption("Data Source: [Berkeley Earth Global Temperature Dataset](https://github.com/datasets/global-temp)")
+st.caption("Data Source: [Berkeley Earth - Global Temperature Data](https://github.com/datasets/global-temp)")
