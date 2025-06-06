@@ -5,6 +5,6 @@ scikit-learn
 seaborn
 statsmodels
 streamlit
-openai
+openai==0.28.1
 langchain
 pandas
