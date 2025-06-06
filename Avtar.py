@@ -12,40 +12,50 @@ else:
 
 # Instructions for scenarios
 UNDERSTANDING_INSTRUCTIONS = """
+### Instructions for Teacher (User) - Feedback Criteria Scenario
 Please use the information provided below to guide your conversation. You have 5 minutes to prepare for the conversation.
 You will then have up to 10 minutes to conduct the conversation.
 Please behave in this conversation as if you were personally in such a situation.
 You may end the conversation at any time by simply saying, “Thank you, goodbye.”
 
-Background Information:
-You work as a teacher at Friedrich-Ebert-School. You would like to attend a professional development course on “self-directed learning.” This training is helpful for your professional growth, as it would complement your existing work experience. Recently, job advertisements have frequently required this qualification.
-However, at your current school, self-directed learning is rarely practiced. Your principal does not highly value this approach. Furthermore, the principal is legally entitled to deny approval for any professional development that is not directly relevant to your job or beneficial to the school.
-You have decided to bring up the topic with your principal, Ms. Horn/Mr. Horn, to introduce the idea of this training. You see this as a challenge for the school since current education policies are increasingly demanding greater student participation, so that students learn to take social responsibility and prepare for lifelong learning. You would like to see your school develop in this direction and want to be qualified to potentially take on leadership roles in this area. If your current school does not move in this direction, you would consider changing schools.
+**Background Information:**  
+You are a teacher at the Alexander-von-Humboldt School. The school leadership has decided to promptly establish a feedback culture. Therefore, colleagues are expected to observe and evaluate each other’s lessons, and students’ opinions are also to be gathered.  
+You have always believed that self-evaluation and reflection by teachers are sufficient. Additionally, for important issues, you occasionally seek input from trusted colleagues. This, in your view, ensures quality assurance in teaching.  
+However, you are skeptical about the current formulation of the feedback criteria, as they focus heavily on the personality of the teacher rather than the teaching conditions.  
+You would prefer that more weight be given to criteria related to teaching conditions—e.g., class size, available resources, time pressure, etc.
 
-Your Task:
-You have requested a meeting with Mr./Ms. Horn (your school principal) to discuss your concern.
-• Factual goal: You want to participate in the professional development course.
-• Relational goal: You want to collaborate with your supervisor on this topic.
+**Your Task:**  
+You will spontaneously speak to your school principal, Mr./Ms. Ziegler, about this issue.
+
+- **Objective (Content Goal):**  
+You want to express your perspective and request a reformulation or expansion of the feedback criteria.
+
+- **Objective (Relationship Goal):**  
+You enjoy working with your principal and wish to maintain a positive professional relationship.
 """
 
 STRATEGIC_INSTRUCTIONS = """
-Please use the information provided below to guide your conversation. You have approximately 5 minutes to prepare for the conversation.
-You will then have 8 to 10 minutes to conduct the conversation.
-Please behave in the current conversation as if you yourself were in such a situation.
-You may end the conversation at any time. Just say: “Thanks, goodbye.”
 
-Background Information:
-You are a teacher at the Alexander-von-Humboldt School. The school leadership has decided to promptly establish a feedback culture. Therefore, colleagues are expected to observe and evaluate each other’s lessons, and students’ opinions are also to be gathered.
-You have always believed that self-evaluation and reflection by teachers are sufficient. Additionally, for important issues, you occasionally seek input from trusted colleagues. This, in your view, ensures quality assurance in teaching.
-However, you are skeptical about the current formulation of the feedback criteria, as they focus heavily on the personality of the teacher rather than the teaching conditions.
-You would prefer that more weight be given to criteria related to teaching conditions—e.g., class size, available resources, time pressure, etc.
+### Instructions for Teacher (User) - Professional Development Scenario
+Please use the information provided below to guide your conversation. You have 5 minutes to prepare for the conversation.  
+You will then have up to 10 minutes to conduct the conversation.  
+Please behave in this conversation as if you were personally in such a situation.  
+You may end the conversation at any time by simply saying, “Thank you, goodbye.”
 
-Your Task:
-You will spontaneously speak to your school principal, Mr./Ms. Ziegler, about this issue.
-• Objective (Content Goal):
-You want to express your perspective and request a reformulation or expansion of the feedback criteria.
-• Objective (Relationship Goal):
-You enjoy working with your principal and wish to maintain a positive professional relationship.
+**Background Information:**  
+You work as a teacher at Friedrich-Ebert-School. You would like to attend a professional development course on “self-directed learning.” This training is helpful for your professional growth, as it would complement your existing work experience. Recently, job advertisements have frequently required this qualification.  
+However, at your current school, self-directed learning is rarely practiced. Your principal does not highly value this approach. Furthermore, the principal is legally entitled to deny approval for any professional development that is not directly relevant to your job or beneficial to the school.  
+You have decided to bring up the topic with your principal, Ms. Horn/Mr. Horn, to introduce the idea of this training. You see this as a challenge for the school since current education policies are increasingly demanding greater student participation, so that students learn to take social responsibility and prepare for lifelong learning.  
+You would like to see your school develop in this direction and want to be qualified to potentially take on leadership roles in this area. If your current school does not move in this direction, you would consider changing schools.
+
+**Your Task:**  
+You have requested a meeting with Mr./Ms. Horn (your school principal) to discuss your concern.
+
+- **Factual goal:**  
+You want to participate in the professional development course.
+
+- **Relational goal:**  
+You want to collaborate with your supervisor on this topic.
 """
 
 # Refined Principal prompt for Strategic Communication scenario (Training)
