@@ -49,8 +49,6 @@ You want to participate in the professional development course.
 - **Relational goal:**  
 You want to collaborate with your supervisor on this topic.
 
-**Type of communication:** Strategic communication  
-**Social Role:** weak
 """
 
 # --- Initialize session state ---
