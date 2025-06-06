@@ -11,28 +11,7 @@ else:
     st.warning("Please enter your OpenAI API key to continue.")
 
 # Instructions for scenarios
-UNDERSTANDING_INSTRUCTIONS = """
-### Instructions for Teacher (User) - Feedback Criteria Scenario
-Please use the information provided below to guide your conversation. You have 5 minutes to prepare for the conversation.
-You will then have up to 10 minutes to conduct the conversation.
-Please behave in this conversation as if you were personally in such a situation.
-You may end the conversation at any time by simply saying, “Thank you, goodbye.”
 
-**Background Information:**  
-You are a teacher at the Alexander-von-Humboldt School. The school leadership has decided to promptly establish a feedback culture. Therefore, colleagues are expected to observe and evaluate each other’s lessons, and students’ opinions are also to be gathered.  
-You have always believed that self-evaluation and reflection by teachers are sufficient. Additionally, for important issues, you occasionally seek input from trusted colleagues. This, in your view, ensures quality assurance in teaching.  
-However, you are skeptical about the current formulation of the feedback criteria, as they focus heavily on the personality of the teacher rather than the teaching conditions.  
-You would prefer that more weight be given to criteria related to teaching conditions—e.g., class size, available resources, time pressure, etc.
-
-**Your Task:**  
-You will spontaneously speak to your school principal, Mr./Ms. Ziegler, about this issue.
-
-- **Objective (Content Goal):**  
-You want to express your perspective and request a reformulation or expansion of the feedback criteria.
-
-- **Objective (Relationship Goal):**  
-You enjoy working with your principal and wish to maintain a positive professional relationship.
-"""
 
 STRATEGIC_INSTRUCTIONS = """
 
@@ -97,53 +76,7 @@ Important reminders:
 # Principal prompt for Understanding (Feedback) scenario (can be added later if needed)
 PRINCIPAL_UNDERSTANDING_PROMPT ="""
 
-You are Mr./Ms. Ziegler, the principal of the Alexander-von-Humboldt School.
-You are participating in a role-play conversation with a teacher who is approaching you about concerns regarding a newly proposed feedback culture initiative at your school.
 
-
-🕒 Guidelines:
-- Preparation time: 5 minutes
-- Conversation time: up to 10 minutes
-- The teacher may end the conversation at any time by saying: “Thank you, goodbye.”
-
-
-🎯 Your Objectives
- Content Goal:
-- Defend the introduction of a feedback culture that includes peer classroom observations and student feedback.
-- Clarify this is for instructional improvement, not control or punishment.
-- Explain the criteria are in draft form and open for input.
-- Emphasize that external perspectives support teaching quality and school development.
-
-Relationship Goal:
-- Listen attentively to the teacher’s viewpoint and concerns.
-- Create a supportive environment that encourages open communication.
-- Show that you value constructive feedback and want to collaborate with the faculty.
-- Reassure the teacher that their concerns will be taken seriously and professionally.
-
- Background:
-- Self-evaluation by teachers is helpful, but not enough for sustainable growth.
-- Your goal is to foster a collaborative, open learning culture shaped by mutual support.
-- The current draft criteria were created in consultation with other principals, but are not finalized.
-- Some colleagues are feeling uncertain or dissatisfied about the direction of the criteria.
-
-During the Conversation, You Should:
-- Welcome the teacher’s request and actively listen.
-- Acknowledge concerns without getting defensive.
-- Clarify that implementation is a pilot phase and input is welcome.
-- Gently express surprise if the teacher speaks for others instead of themselves.
-- Accept arguments only if they:
-    1. Show understanding of your perspective
-    2. Are clearly stated
-    3. Include concrete suggestions
-- End the conversation with a clear next step (e.g., propose a follow-up meeting via email with other stakeholders).
-
-----------------------------------------
-📝 Reminders:
-- Focus on one topic at a time
-- Use clear, short sentences
-- Avoid giving too much information all at once
-- Stay professional, empathetic, and open-minded
-"""
 
 # Mapping scenarios to instructions and prompts
 SCENARIOS = {
@@ -151,10 +84,7 @@ SCENARIOS = {
         "instructions": STRATEGIC_INSTRUCTIONS,
         "system_prompt": PRINCIPAL_UNDERSTANDING_PROMPT,
     },
-    "Training": {
-        "instructions": UNDERSTANDING_INSTRUCTIONS,
-        "system_prompt": PRINCIPAL_STRATEGIC_PROMPT,
-    }
+    
 }
 
 def get_system_prompt(scenario_short_name):
@@ -172,8 +102,7 @@ language = st.selectbox("Select Language", options=["EN", "DE"])
 # Scenario selection
 scenario = st.selectbox(
     "Select Scenario",
-    options=["Feedback", "Training"],
-    help="Feedback = Understanding-Oriented; Training = Strategic Communication"
+    options=[", "Training"],
 )
 
 # Input type (only text for now)
