@@ -1,231 +1,94 @@
 import streamlit as st
-from io import BytesIO
-import speech_recognition as sr
 
-# === Language packs ===
-LANG_DATA = {
-    "EN": {
-        "title": "Teacher-Principal Role-Play Chatbot",
-        "select_language": "Select Language",
-        "select_scenario": "Select Scenario",
-        "scenario_strategic": "Strategic Communication",
-        "scenario_understanding": "Understanding-Oriented Communication",
-        "select_input": "Select Input Type",
-        "input_text": "Text Input",
-        "input_audio": "Audio Input",
-        "instructions_title": "Teacher Instructions",
-        "start_conversation": "Start Conversation",
-        "type_message": "Type your message here...",
-        "record_audio": "Record your question and click 'Send'",
-        "send": "Send",
-        "conversation_log": "Conversation Log",
-        "role_teacher": "You (Teacher - Ms. Blum):",
-        "role_principal": "Principal (AI - Ms. Ziegler):",
-        "no_audio": "No audio input detected. Please try again.",
-        "listening": "Listening... Please speak.",
-        "error_audio": "Sorry, could not recognize audio. Please try again.",
-        "scenario_desc": {
-            "Strategic Communication": (
-                "In this scenario, the Principal (Ms. Ziegler) will respond "
-                "with a focus on strategic communication — emphasizing school policies, "
-                "goals, and managing concerns tactfully."
-            ),
-            "Understanding-Oriented Communication": (
-                "In this scenario, the Principal (Ms. Ziegler) will respond with "
-                "empathy, acknowledging the teacher’s feelings and focusing on mutual understanding."
-            ),
-        },
-        "instructions_teacher": (
-            "You are Ms. Blum, a teacher discussing feedback culture with your principal. "
-            "Express concerns about the current feedback criteria and seek dialogue."
-        ),
-    },
-    "DE": {
-        "title": "Lehrer-Schulleiter Rollenspiel Chatbot",
-        "select_language": "Sprache wählen",
-        "select_scenario": "Szenario wählen",
-        "scenario_strategic": "Strategische Kommunikation",
-        "scenario_understanding": "Verständnisorientierte Kommunikation",
-        "select_input": "Eingabetyp wählen",
-        "input_text": "Texteingabe",
-        "input_audio": "Audioeingabe",
-        "instructions_title": "Anleitung für Lehrer*innen",
-        "start_conversation": "Gespräch starten",
-        "type_message": "Hier Nachricht eingeben...",
-        "record_audio": "Nehmen Sie Ihre Frage auf und klicken Sie 'Senden'",
-        "send": "Senden",
-        "conversation_log": "Gesprächsverlauf",
-        "role_teacher": "Sie (Lehrer*in - Frau Blum):",
-        "role_principal": "Schulleiterin (KI - Frau Ziegler):",
-        "no_audio": "Keine Audioeingabe erkannt. Bitte versuchen Sie es erneut.",
-        "listening": "Höre zu... Bitte sprechen.",
-        "error_audio": "Entschuldigung, konnte Audio nicht erkennen. Bitte versuchen Sie es erneut.",
-        "scenario_desc": {
-            "Strategische Kommunikation": (
-                "In diesem Szenario antwortet die Schulleiterin (Frau Ziegler) "
-                "mit Fokus auf strategische Kommunikation – betont Schulpolitik, "
-                "Ziele und taktvollen Umgang mit Bedenken."
-            ),
-            "Verständnisorientierte Kommunikation": (
-                "In diesem Szenario antwortet die Schulleiterin (Frau Ziegler) "
-                "einfühlsam, erkennt die Gefühle der Lehrkraft an und legt Wert auf gegenseitiges Verständnis."
-            ),
-        },
-        "instructions_teacher": (
-            "Sie sind Frau Blum, eine Lehrerin, die mit der Schulleiterin über Feedbackkultur spricht. "
-            "Äußern Sie Ihre Bedenken zu den aktuellen Feedbackkriterien und suchen Sie den Dialog."
-        ),
-    },
-}
-
-# === Sample AI response templates aligned to scenarios ===
-AI_RESPONSES = {
-    "EN": {
-        "Strategic Communication": [
-            "I understand your concerns, Ms. Blum. However, the feedback criteria were designed to ensure consistency and fairness across all lessons.",
-            "We must consider the school's overall goals and maintain high standards, even if some external factors vary.",
-            "If the class size or tools pose difficulties, these can be discussed separately in future meetings to adjust support.",
-            "This feedback culture is about improving quality and accountability, not punishment.",
-            "Your suggestions for a checklist are noted. We'll aim to include framework conditions where feasible.",
+# Role-play scenarios with AI Principal responses and teacher instructions
+SCENARIOS = {
+    "Strategic": {
+        "instructions_en": "Scenario: Strategic Communication. The Principal focuses on goal-oriented, outcome-driven dialogue. Emphasis on policy, control, and organizational objectives.",
+        "instructions_de": "Szenario: Strategische Kommunikation. Die Schulleitung konzentriert sich auf zielorientierte, ergebnisgetriebene Dialoge. Schwerpunkt auf Richtlinien, Kontrolle und organisatorischen Zielen.",
+        "responses_en": [
+            "This feedback initiative is going to happen. It has already been decided.",
+            "It’s no longer about whether we like it or not—it’s happening.",
+            "But of course, you still have the opportunity to express your concerns and fears.",
+            "We’ll find a solution. This isn’t meant to be a punishment—it’s about improving quality.",
         ],
-        "Understanding-Oriented Communication": [
-            "Thank you for sharing your concerns so openly, Ms. Blum. I appreciate your perspective on the broader teaching conditions.",
-            "I recognize that each class and situation is unique, and that feedback should consider those nuances.",
-            "It's important that we support you, not just evaluate you, and that the criteria feel fair to everyone.",
-            "Maybe together we can develop a more holistic feedback approach that reflects these real challenges.",
-            "Your idea of co-creating a checklist sounds like a great step to ensure everyone feels heard.",
+        "responses_de": [
+            "Diese Feedback-Initiative wird kommen. Es wurde bereits beschlossen.",
+            "Es geht nicht mehr darum, ob es uns gefällt oder nicht – es passiert.",
+            "Aber natürlich haben Sie weiterhin die Möglichkeit, Ihre Bedenken und Ängste zu äußern.",
+            "Wir werden eine Lösung finden. Es soll keine Bestrafung sein – es geht um Qualitätsverbesserung.",
         ],
     },
-    "DE": {
-        "Strategische Kommunikation": [
-            "Ich verstehe Ihre Bedenken, Frau Blum. Die Feedback-Kriterien wurden jedoch entwickelt, um Konsistenz und Fairness in allen Unterrichtsstunden zu gewährleisten.",
-            "Wir müssen die Gesamtziele der Schule berücksichtigen und hohe Standards aufrechterhalten, auch wenn externe Faktoren variieren.",
-            "Wenn Klassengröße oder Hilfsmittel Schwierigkeiten bereiten, können diese in zukünftigen Sitzungen besprochen werden, um Unterstützung anzupassen.",
-            "Diese Feedback-Kultur dient der Qualitätsverbesserung und Verantwortlichkeit, nicht als Bestrafung.",
-            "Ihre Vorschläge für eine Checkliste sind notiert. Wir werden versuchen, Rahmenbedingungen wo möglich zu berücksichtigen.",
+    "Understanding-Oriented": {
+        "instructions_en": "Scenario: Understanding-Oriented Communication. The Principal listens empathetically and focuses on shared meaning, mutual understanding, and collaboration.",
+        "instructions_de": "Szenario: Verständigungsorientierte Kommunikation. Die Schulleitung hört empathisch zu und legt Wert auf gemeinsamen Sinn, gegenseitiges Verständnis und Zusammenarbeit.",
+        "responses_en": [
+            "I hear your concerns, and I understand your discomfort about being evaluated.",
+            "This is not meant to punish you but to improve teaching quality together.",
+            "Let’s work together to create a feedback process that includes all relevant factors.",
+            "Your suggestions about including framework conditions are very valuable.",
         ],
-        "Verständnisorientierte Kommunikation": [
-            "Vielen Dank, dass Sie Ihre Bedenken so offen geteilt haben, Frau Blum. Ich schätze Ihre Sicht auf die umfassenderen Unterrichtsbedingungen.",
-            "Ich erkenne an, dass jede Klasse und Situation einzigartig ist und dass Feedback diese Nuancen berücksichtigen sollte.",
-            "Es ist wichtig, Sie zu unterstützen und nicht nur zu bewerten, und dass die Kriterien sich für alle fair anfühlen.",
-            "Vielleicht können wir gemeinsam einen ganzheitlicheren Feedback-Ansatz entwickeln, der diese realen Herausforderungen widerspiegelt.",
-            "Ihre Idee, eine Checkliste gemeinsam zu erstellen, klingt nach einem guten Schritt, damit sich alle gehört fühlen.",
+        "responses_de": [
+            "Ich höre Ihre Bedenken und verstehe Ihr Unbehagen bezüglich der Bewertung.",
+            "Es soll Sie nicht bestrafen, sondern die Unterrichtsqualität gemeinsam verbessern.",
+            "Lassen Sie uns gemeinsam einen Feedback-Prozess entwickeln, der alle relevanten Faktoren berücksichtigt.",
+            "Ihre Vorschläge zur Einbeziehung der Rahmenbedingungen sind sehr wertvoll.",
         ],
     },
 }
 
-# === Helper: AI response generator ===
-import random
+# Helper function to get next response based on turn count
+def get_principal_response(scenario, language, turn):
+    responses = SCENARIOS[scenario]["responses_en"] if language == "EN" else SCENARIOS[scenario]["responses_de"]
+    if turn < len(responses):
+        return responses[turn]
+    else:
+        # Repeat last response if turns exceed responses available
+        return responses[-1]
 
-def generate_ai_response(language, scenario, user_message):
-    # Just pick next AI reply randomly from the pool for now
-    responses = AI_RESPONSES[language][scenario]
-    return random.choice(responses)
+st.set_page_config(page_title="Teacher-Principal Roleplay Chatbot", page_icon="🎭")
 
-# === Audio to text using SpeechRecognition ===
-def audio_to_text(audio_bytes):
-    recognizer = sr.Recognizer()
-    audio_file = sr.AudioFile(BytesIO(audio_bytes))
-    with audio_file as source:
-        audio_data = recognizer.record(source)
-    try:
-        text = recognizer.recognize_google(audio_data)
-        return text
-    except sr.UnknownValueError:
-        return None
-    except sr.RequestError:
-        return None
+st.title("Teacher-Principal Roleplay Chatbot")
 
-# === Main app ===
-def main():
-    st.set_page_config(page_title="Teacher-Principal Roleplay Chatbot", layout="wide")
+# Sidebar options
+language = st.sidebar.radio("Select Language / Sprache wählen", ("EN", "DE"))
+scenario = st.sidebar.radio("Select Scenario / Szenario wählen", ("Strategic", "Understanding-Oriented"))
+input_type = "Text"  # Fixed as per your request
 
-    # Session state initialization
-    if "chat_log" not in st.session_state:
-        st.session_state.chat_log = []  # List of (speaker, message)
+st.sidebar.markdown("---")
+st.sidebar.markdown(f"**Input type:** {input_type}")
 
-    if "language" not in st.session_state:
-        st.session_state.language = "EN"
+# Show teacher instructions based on language and scenario
+instructions_key = "instructions_en" if language == "EN" else "instructions_de"
+st.info(SCENARIOS[scenario][instructions_key])
 
-    if "scenario" not in st.session_state:
-        st.session_state.scenario = "Strategic Communication"
+# Initialize session state for conversation logs and turn count
+if "conversation" not in st.session_state:
+    st.session_state.conversation = []
+if "turn" not in st.session_state:
+    st.session_state.turn = 0  # How many principal responses so far
 
-    if "input_type" not in st.session_state:
-        st.session_state.input_type = "Text Input"
+# Chat input
+teacher_input = st.text_input("Your message (Teacher) / Ihre Nachricht (Lehrer*in)")
 
-    lang = st.sidebar.selectbox(
-        LANG_DATA["EN"]["select_language"], ["EN", "DE"], index=0 if st.session_state.language == "EN" else 1
-    )
-    st.session_state.language = lang
+if st.button("Send / Senden") and teacher_input.strip() != "":
+    # Append teacher message
+    st.session_state.conversation.append({"role": "Teacher", "text": teacher_input.strip()})
 
-    scenario_options = {
-        "EN": [LANG_DATA["EN"]["scenario_strategic"], LANG_DATA["EN"]["scenario_understanding"]],
-        "DE": [LANG_DATA["DE"]["scenario_strategic"], LANG_DATA["DE"]["scenario_understanding"]],
-    }
-    scenario = st.sidebar.selectbox(
-        LANG_DATA[lang]["select_scenario"],
-        scenario_options[lang],
-        index=0 if st.session_state.scenario == scenario_options[lang][0] else 1,
-    )
-    st.session_state.scenario = scenario
+    # Get AI Principal response based on scenario, language, and turn count
+    principal_response = get_principal_response(scenario, language, st.session_state.turn)
+    st.session_state.conversation.append({"role": "Principal", "text": principal_response})
 
-    input_type = st.sidebar.selectbox(
-        LANG_DATA[lang]["select_input"],
-        [LANG_DATA[lang]["input_text"], LANG_DATA[lang]["input_audio"]],
-        index=0 if st.session_state.input_type == LANG_DATA[lang]["input_text"] else 1,
-    )
-    st.session_state.input_type = input_type
+    st.session_state.turn += 1
 
-    # Display teacher instructions
-    st.sidebar.markdown(f"### {LANG_DATA[lang]['instructions_title']}")
-    st.sidebar.info(LANG_DATA[lang]["instructions_teacher"])
-    st.sidebar.markdown(f"**{LANG_DATA[lang]['scenario_desc'][scenario]}**")
+# Display conversation log
+for chat in st.session_state.conversation:
+    if chat["role"] == "Teacher":
+        st.markdown(f"**Teacher:** {chat['text']}")
+    else:
+        st.markdown(f"**Principal:** {chat['text']}")
 
-    st.title(LANG_DATA[lang]["title"])
-
-    # Conversation display
-    st.markdown(f"## {LANG_DATA[lang]['conversation_log']}")
-    for speaker, msg in st.session_state.chat_log:
-        if speaker == "teacher":
-            st.markdown(f"**{LANG_DATA[lang]['role_teacher']}** {msg}")
-        else:
-            st.markdown(f"**{LANG_DATA[lang]['role_principal']}** {msg}")
-
-    # Input area
-    user_input = None
-
-    if input_type == LANG_DATA[lang]["input_text"]:
-        user_input = st.text_input(LANG_DATA[lang]["type_message"], key="user_text_input")
-        submit = st.button(LANG_DATA[lang]["send"])
-        if submit and user_input:
-            # Log teacher input
-            st.session_state.chat_log.append(("teacher", user_input))
-            # Generate AI response aligned with scenario
-            ai_resp = generate_ai_response(lang, scenario, user_input)
-            st.session_state.chat_log.append(("principal", ai_resp))
-            # Clear input box
-            st.session_state.user_text_input = ""
-
-    elif input_type == LANG_DATA[lang]["input_audio"]:
-        st.write(LANG_DATA[lang]["record_audio"])
-        audio_bytes = st.file_uploader("Upload a WAV audio file (max 10MB)", type=["wav"], key="audio_uploader")
-
-        if audio_bytes is not None:
-            with st.spinner(LANG_DATA[lang]["listening"]):
-                recognized_text = audio_to_text(audio_bytes.read())
-            if recognized_text:
-                st.markdown(f"> **You said:** {recognized_text}")
-                # Log teacher input
-                st.session_state.chat_log.append(("teacher", recognized_text))
-                # Generate AI response aligned with scenario
-                ai_resp = generate_ai_response(lang, scenario, recognized_text)
-                st.session_state.chat_log.append(("principal", ai_resp))
-            else:
-                st.error(LANG_DATA[lang]["error_audio"])
-
-    # Add a "Clear Chat" button
-    if st.button("Clear Conversation"):
-        st.session_state.chat_log = []
-
-if __name__ == "__main__":
-    main()
+# Button to clear conversation
+if st.button("Clear Conversation / Gespräch löschen"):
+    st.session_state.conversation = []
+    st.session_state.turn = 0
+    st.experimental_rerun()
