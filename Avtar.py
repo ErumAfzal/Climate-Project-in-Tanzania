@@ -1,8 +1,14 @@
 import streamlit as st
 import openai
 
-# Set your OpenAI API key here or use environment variable OPENAI_API_KEY
-openai.api_key = st.secrets.get("OPENAI_API_KEY") if "OPENAI_API_KEY" in st.secrets else ""
+st.title("Principal Conversation Role-Play")
+api_key = st.text_input("🔑 Enter your OpenAI API key", type="password")
+
+if api_key:
+    openai.api_key = api_key
+    # Now you can safely use the key
+else:
+    st.warning("Please enter your OpenAI API key to continue.")
 
 # Instructions for scenarios
 UNDERSTANDING_INSTRUCTIONS = """
