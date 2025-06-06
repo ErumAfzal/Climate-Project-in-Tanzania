@@ -2,8 +2,8 @@ import streamlit as st
 
 # --- Instructions Texts ---
 
-strategic_instructions = """
-### Instruction for Teacher (User)
+understanding_instructions = """
+### Instructions for Teacher (User) - Feedback Criteria Scenario
 
 Please use the information provided below to guide your conversation. You have approximately 5 minutes to prepare for the conversation.  
 You will then have 8 to 10 minutes to conduct the conversation.  
@@ -26,8 +26,8 @@ You want to express your perspective and request a reformulation or expansion of
 You enjoy working with your principal and wish to maintain a positive professional relationship.
 """
 
-understanding_instructions = """
-### Instruction for the Role-Playing Person (Teacher) - User
+strategic_instructions = """
+### Instructions for Teacher (User) - Professional Development Scenario
 
 Please use the information provided below to guide your conversation. You have 5 minutes to prepare for the conversation.  
 You will then have up to 10 minutes to conduct the conversation.  
@@ -58,35 +58,50 @@ You want to collaborate with your supervisor on this topic.
 if 'conversation' not in st.session_state:
     st.session_state.conversation = []
 
-# --- Sidebar Controls ---
+# --- Sidebar Controls with user-friendly scenario names ---
 
 st.sidebar.title("Teacher-Principal Role-Play Chatbot")
 
 language = st.sidebar.selectbox("Select Language", options=["English", "German"], index=0)
 
-scenario = st.sidebar.selectbox(
+# Swap the mapping
+scenario_map = {
+    "Feedback Criteria Scenario": "Understanding",
+    "Professional Development Scenario": "Strategic"
+}
+
+scenario_display_names = list(scenario_map.keys())
+selected_scenario_display = st.sidebar.selectbox(
     "Select Scenario",
-    options=["Strategic", "Understanding"],
+    options=scenario_display_names,
     index=0,
-    help="Choose the communication style for the conversation."
+    help="Choose the conversation scenario."
 )
 
 input_type = st.sidebar.radio(
     "Select Input Type",
-    options=["Text"],  # Audio disabled for now as requested
+    options=["Text"],  # Audio disabled for now
     index=0
 )
 
-st.sidebar.markdown("---")
-st.sidebar.write("### Instructions")
+# Map back to internal scenario key
+scenario = scenario_map[selected_scenario_display]
+
+# --- Show Instructions on main page ---
+
+st.title("Teacher-Principal Role-Play Chatbot")
+
+st.markdown("---")
+st.markdown(f"## Instructions for {selected_scenario_display}")
+
 if scenario == "Strategic":
-    st.sidebar.markdown(strategic_instructions)
+    st.markdown(strategic_instructions)
 else:
-    st.sidebar.markdown(understanding_instructions)
+    st.markdown(understanding_instructions)
+
+st.markdown("---")
 
 # --- Display the conversation ---
-
-st.title("Teacher-Principal AI Role-Play Chatbot")
 
 for i, chat in enumerate(st.session_state.conversation):
     role = chat['role']
@@ -110,7 +125,6 @@ if st.button("Send"):
         # Simple AI Principal response logic depending on scenario
 
         def generate_principal_response(message, scenario):
-            # For demo, basic keyword-based logic and canned responses aligned to scenario goals
             if "criteria" in message.lower() or "feedback" in message.lower():
                 if scenario == "Strategic":
                     return (
@@ -137,7 +151,6 @@ if st.button("Send"):
             elif "thank" in message.lower():
                 return "Thank you for the conversation. Goodbye!"
             else:
-                # Generic fallback
                 if scenario == "Strategic":
                     return "Let's continue discussing your concerns regarding teaching standards."
                 else:
@@ -147,5 +160,4 @@ if st.button("Send"):
 
         st.session_state.conversation.append({"role": "principal", "message": response})
 
-        # Clear input box after sending
         st.experimental_rerun()
