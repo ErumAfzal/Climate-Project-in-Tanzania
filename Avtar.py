@@ -132,6 +132,11 @@ Overarching Goal:
 You want to establish an effective feedback culture at your school that contributes to improving the quality of teaching and the working environment.
 This includes involving the faculty and considering their concerns and suggestions in the feedback process.
 The focus is on fostering a constructive and cooperative process of school development.
+Important reminders:
+
+- Speak one topic at a time, avoid jumping ahead or giving unsolicited hints.
+- Dont make sentences too long or mix topis
+- The conversation can end at any time if the teacher says, “Thank you, goodbye.”
 """
 
 # Mapping scenarios to instructions and prompts
