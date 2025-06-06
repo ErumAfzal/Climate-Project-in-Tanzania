@@ -2,7 +2,7 @@ import streamlit as st
 import openai
 
 st.title("Principal Conversation Role-Play")
-api_key = st.text_input("🔑 Enter your OpenAI API key", type="password")
+api_key = st.text_input("🔑 Enter the key", type="password")
 
 if api_key:
     openai.api_key = api_key
