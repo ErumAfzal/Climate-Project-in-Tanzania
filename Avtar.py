@@ -7,7 +7,7 @@ api_key = st.text_input("🔑 Enter the key", type="password")
 if api_key:
     openai.api_key = api_key
 else:
-    st.warning("Please enter your OpenAI API key to continue.")
+    st.warning("Please enter the key to continue.")
     st.stop()
 
 # Instructions for scenarios
