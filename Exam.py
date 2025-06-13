@@ -6,9 +6,10 @@ from docx import Document
 from typing import List
 
 # ✅ MUST be the first Streamlit command
+st.title("🎓 EQF 6–7 Pedagogical Question Generator with OpenAI")
 st.set_page_config(page_title="EQF 6–7 Question Generator", layout="wide")
 
-st.title("🎓 EQF 6–7 Pedagogical Question Generator with OpenAI")
+
 st.markdown("Upload documents to generate **master’s-level questions** based on pedagogical theory and real-world teacher education contexts.")
 
 # Set OpenAI API key from user input
