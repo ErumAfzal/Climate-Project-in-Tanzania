@@ -15,6 +15,12 @@ if api_key:
 else:
     st.warning("Please enter your OpenAI API key to continue.")
 
+# ⛳ MUST be the first Streamlit command
+st.set_page_config(page_title="EQF 6–7 Question Generator", layout="wide")
+
+# ✅ All other Streamlit UI code comes after this
+st.title("🎓 EQF 6–7 Pedagogical Question Generator with OpenAI")
+
 # ------------------------------------
 # File Handling Functions
 # ------------------------------------
