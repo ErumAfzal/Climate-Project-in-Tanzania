@@ -6,7 +6,14 @@ from docx import Document
 from typing import List
 
 # Set OpenAI API key from secrets
-openai.api_key = st.secrets["OPENAI_API_KEY"] if "OPENAI_API_KEY" in st.secrets else os.getenv("OPENAI_API_KEY")
+st.title("Principal Conversation Role-Play")
+api_key = st.text_input("🔑 Enter your key", type="password")
+
+if api_key:
+    openai.api_key = api_key
+    # Now you can safely use the key
+else:
+    st.warning("Please enter your OpenAI API key to continue.")
 
 # ------------------------------------
 # File Handling Functions
