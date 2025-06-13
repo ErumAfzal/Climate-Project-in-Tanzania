@@ -8,3 +8,6 @@ streamlit
 openai==0.28.1
 langchain
 pandas
+python-docx
+PyPDF2
+
