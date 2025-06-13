@@ -1,23 +1,25 @@
-import streamlit as st
 import os
 import openai
 from PyPDF2 import PdfReader
 from docx import Document
 from typing import List
-
-# ✅ MUST be the first Streamlit command
-st.title("🎓 EQF 6–7 Pedagogical Question Generator with OpenAI")
+import streamlit as st
 st.set_page_config(page_title="EQF 6–7 Question Generator", layout="wide")
 
-
-st.markdown("Upload documents to generate **master’s-level questions** based on pedagogical theory and real-world teacher education contexts.")
-
-# Set OpenAI API key from user input
+# ------------------------------------
+# App Title and API Key Input
+# ------------------------------------
+st.title("Principal Conversation Role-Play")
 api_key = st.text_input("🔑 Enter your OpenAI API key", type="password")
+
 if api_key:
     openai.api_key = api_key
 else:
-    st.warning("Please enter your OpenAI API key to continue.")
+    st.warning("⚠️ Please enter your OpenAI API key to continue.")
+    st.stop()  # ⛔ Stop execution until API key is provided
+
+st.title("🎓 EQF 6–7 Pedagogical Question Generator with OpenAI")
+st.markdown("Upload documents to generate **master’s-level questions** based on pedagogical theory and real-world teacher education contexts.")
 
 # ------------------------------------
 # File Handling Functions
@@ -43,15 +45,15 @@ def extract_text(file):
 # ------------------------------------
 def generate_questions_with_openai(text, q_type, count):
     system_prompt = (
-        "You are an expert educator creating academic-level assessment questions "
-        "aligned with EQF Level 6–7 (Bachelor/Master). The questions should reflect deep understanding "
+        "You are an expert educator creating academic-level assessment questions. "
+        "Align them with EQF Level 6–7 (Bachelor/Master). The questions should reflect deep understanding "
         "of pedagogical theory, including Habermas’ theory of communicative action, role-play evaluation, "
         "strategic vs. understanding-oriented communication, and real-world teacher training."
     )
 
     user_prompt = (
         f"Based on the following content:\n\n"
-        f"{text[:4000]}\n\n"
+        f"{text[:4000]}\n\n"  # limit input for token efficiency
         f"Generate {count} {q_type} questions suitable for Master's-level students in education. "
         f"Each question must be theory-informed, practice-relevant, and unambiguous."
     )
@@ -70,7 +72,7 @@ def generate_questions_with_openai(text, q_type, count):
     return output.strip().split("\n\n")
 
 # ------------------------------------
-# Streamlit UI
+# Streamlit File Upload and Inputs
 # ------------------------------------
 uploaded_files = st.file_uploader("📄 Upload PDF, DOCX, or TXT files", type=["pdf", "docx", "txt"], accept_multiple_files=True)
 
@@ -89,14 +91,16 @@ for i, (qtype, default) in enumerate(default_targets.items()):
     with cols[i]:
         question_targets[qtype] = st.number_input(qtype, min_value=0, value=default, key=qtype)
 
+# ------------------------------------
+# Generate Questions Button
+# ------------------------------------
 if st.button("🚀 Generate Questions"):
-    if not api_key:
-        st.error("🚫 Please enter your OpenAI API key.")
-    elif not uploaded_files:
+    if not uploaded_files:
         st.warning("⚠️ Please upload at least one document.")
     else:
         with st.spinner("🧠 Extracting and analyzing text..."):
             all_text = "\n\n".join([extract_text(file) for file in uploaded_files])
+
         st.success("✅ Text extracted. Generating questions now...")
 
         for q_type, count in question_targets.items():
