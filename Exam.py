@@ -5,21 +5,18 @@ from PyPDF2 import PdfReader
 from docx import Document
 from typing import List
 
-# Set OpenAI API key from secrets
-st.title("Principal Conversation Role-Play")
-api_key = st.text_input("🔑 Enter your key", type="password")
-
-if api_key:
-    openai.api_key = api_key
-    # Now you can safely use the key
-else:
-    st.warning("Please enter your OpenAI API key to continue.")
-
-# ⛳ MUST be the first Streamlit command
+# ✅ MUST be the first Streamlit command
 st.set_page_config(page_title="EQF 6–7 Question Generator", layout="wide")
 
-# ✅ All other Streamlit UI code comes after this
 st.title("🎓 EQF 6–7 Pedagogical Question Generator with OpenAI")
+st.markdown("Upload documents to generate **master’s-level questions** based on pedagogical theory and real-world teacher education contexts.")
+
+# Set OpenAI API key from user input
+api_key = st.text_input("🔑 Enter your OpenAI API key", type="password")
+if api_key:
+    openai.api_key = api_key
+else:
+    st.warning("Please enter your OpenAI API key to continue.")
 
 # ------------------------------------
 # File Handling Functions
@@ -53,7 +50,7 @@ def generate_questions_with_openai(text, q_type, count):
 
     user_prompt = (
         f"Based on the following content:\n\n"
-        f"{text[:4000]}\n\n"  # limit text for prompt token length
+        f"{text[:4000]}\n\n"
         f"Generate {count} {q_type} questions suitable for Master's-level students in education. "
         f"Each question must be theory-informed, practice-relevant, and unambiguous."
     )
@@ -74,10 +71,6 @@ def generate_questions_with_openai(text, q_type, count):
 # ------------------------------------
 # Streamlit UI
 # ------------------------------------
-st.set_page_config(page_title="EQF 6–7 Question Generator", layout="wide")
-st.title("🎓 EQF 6–7 Pedagogical Question Generator with OpenAI")
-st.markdown("Upload documents to generate **master’s-level questions** based on pedagogical theory and real-world teacher education contexts.")
-
 uploaded_files = st.file_uploader("📄 Upload PDF, DOCX, or TXT files", type=["pdf", "docx", "txt"], accept_multiple_files=True)
 
 st.markdown("### 🎯 Select Target Number of Questions")
@@ -96,12 +89,13 @@ for i, (qtype, default) in enumerate(default_targets.items()):
         question_targets[qtype] = st.number_input(qtype, min_value=0, value=default, key=qtype)
 
 if st.button("🚀 Generate Questions"):
-    if not uploaded_files:
+    if not api_key:
+        st.error("🚫 Please enter your OpenAI API key.")
+    elif not uploaded_files:
         st.warning("⚠️ Please upload at least one document.")
     else:
         with st.spinner("🧠 Extracting and analyzing text..."):
             all_text = "\n\n".join([extract_text(file) for file in uploaded_files])
-
         st.success("✅ Text extracted. Generating questions now...")
 
         for q_type, count in question_targets.items():
