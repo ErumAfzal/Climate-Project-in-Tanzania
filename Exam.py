@@ -16,157 +16,153 @@ else:
     st.warning("Bitte API-Schlüssel eingeben, um fortzufahren.")
     st.stop()
 
-# --- Text extraction functions ---
-def extract_text_from_pdf(file):
-    reader = PdfReader(file)
-    texts = []
-    for page in reader.pages:
-        text = page.extract_text()
-        if text:
-            texts.append(text)
-    return "\n".join(texts)
+# --- GPT call helper ---
+def gpt_call(prompt, max_tokens=500):
+    response = openai.ChatCompletion.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=max_tokens,
+        temperature=0.7,
+    )
+    return response.choices[0].message.content.strip()
 
-def extract_text_from_docx(file):
-    doc = Document(file)
-    return "\n".join([para.text for para in doc.paragraphs])
+# --- Extract topics from the document ---
+def extract_topics(text):
+    prompt = (
+        "Bitte extrahiere aus dem folgenden Text maximal 7 wichtige Themen als kurze Stichwörter, "
+        "kommagetrennt, ohne Beschreibung:\n\n"
+        f"{text}\n\nThemen:"
+    )
+    topics_str = gpt_call(prompt, max_tokens=100)
+    # Split by commas and strip spaces
+    topics = [t.strip() for t in topics_str.split(",") if t.strip()]
+    return topics[:7]
 
-def extract_text(file):
-    if file.type == "application/pdf":
-        return extract_text_from_pdf(file)
-    elif file.name.endswith(".docx"):
-        return extract_text_from_docx(file)
+# --- Generate questions and keys ---
+def generate_questions_with_keys(text, topic, num_questions, question_type, partial_points=None, max_length=None):
+    # Build prompt based on question type
+    base_prompt = f"Erstelle {num_questions} Fragen zum Thema '{topic}' basierend auf folgendem Text:\n\n{text}\n\n"
+    
+    if question_type == "Multiple Choice (einzelne Antwort)":
+        prompt = (
+            base_prompt +
+            "Jede Frage soll 4 Antwortmöglichkeiten haben, von denen genau eine richtig ist. "
+            "Bitte gib die Fragen und die richtige Antwort als Antwortschlüssel an."
+        )
+    elif question_type == "Multiple Choice (mehrere Antworten, Teilpunkte)":
+        prompt = (
+            base_prompt +
+            "Jede Frage soll 4 Antwortmöglichkeiten haben, von denen mehrere richtig sein können. "
+            f"Berücksichtige Teilpunkte (partial points) bei der Auswertung, mit folgendem Punkteschema: {partial_points}."
+            "Bitte gib die Fragen und die richtigen Antworten als Antwortschlüssel an."
+        )
+    elif question_type == "Offene Fragen":
+        prompt = (
+            base_prompt +
+            "Erstelle offene Fragen. "
+            f"Die Antworten sollen maximal {max_length} Wörter lang sein. "
+            "Bitte gib die Fragen und passende Antwortschlüssel an."
+        )
+    elif question_type == "Matching (Zuordnungen)":
+        prompt = (
+            base_prompt +
+            "Erstelle Matching-Fragen, bei denen Begriffe zugeordnet werden sollen. "
+            "Bitte gib die Fragen und die Lösungsschlüssel an."
+        )
     else:
-        return file.read().decode("utf-8")
+        prompt = base_prompt
 
-# --- Topics & default question counts ---
-topics = {
-    "Teil 1: Arbeiten in multiprofessionellen Teams / Ganztagsschule": 8,
-    "Teil 2: Bildung und Ungleichheit": 8,
-    "Teil 3: INTER_A": 5,
-    "Teil 4: Interdisziplinäres Lernen": 8,
-    "Teil 5: Kommunikation und kommunikative Kompetenzen": 8,
-}
+    # Ask GPT for questions + answers
+    response = gpt_call(prompt, max_tokens=1500)
+    
+    # Simple parsing: Assume format "Frage 1: ... Antwort: ..."
+    # We will split by "Frage" and parse pairs
+    q_and_a = []
+    parts = response.split("Frage ")
+    for part in parts[1:]:  # skip first split as it is before Frage 1
+        try:
+            q_part, a_part = part.split("Antwort", 1)
+            question = q_part.strip(": .\n")
+            answer = a_part.strip(": .\n")
+            q_and_a.append((question, answer))
+        except ValueError:
+            # fallback: if no "Antwort" word found, take whole as question only
+            q_and_a.append((part.strip(), ""))
+    return q_and_a
 
-# --- UI: Select topics ---
-selected_topics = st.multiselect("🧠 Wähle die Themenbereiche", list(topics.keys()), default=list(topics.keys()))
+# --- Streamlit App ---
+st.title("Mehrfach-Fragentypen Generator mit Antwortschlüssel")
 
-# --- UI: Select question types ---
-question_types_available = ["Multiple Choice (einzelne Antwort)", "Multiple Choice (mehrere Antworten, Teilpunkte)", "Offene Fragen", "Matching (Zuordnungen)"]
-question_type = st.selectbox("📝 Frageformat wählen", question_types_available)
+uploaded_file = st.file_uploader("Lade ein Textdokument hoch (.txt)", type=["txt"])
 
-# --- UI: Number of questions ---
-num_questions = st.number_input("Wie viele Fragen pro Thema generieren?", min_value=1, max_value=20, value=5, step=1)
+if uploaded_file:
+    text = uploaded_file.read().decode("utf-8")
+    st.write("### Eingelesener Text (Vorschau):")
+    st.write(text[:1000] + ("..." if len(text) > 1000 else ""))
 
-# --- UI: Question-type-specific settings ---
-if question_type.startswith("Multiple Choice"):
-    st.markdown("**MC Einstellungen:**")
-    if question_type == "Multiple Choice (mehrere Antworten, Teilpunkte)":
-        partial_points = st.number_input("Teilpunktwert pro richtige Antwortoption (z.B. 0.5)", min_value=0.0, max_value=1.0, value=0.5, step=0.1)
-    else:
-        partial_points = None
-elif question_type == "Offene Fragen":
-    max_length = st.number_input("Maximale Antwortlänge (Zeichen), 0 für unbegrenzt", min_value=0, max_value=1000, value=0, step=50)
-else:
+    with st.spinner("Extrahiere Themen..."):
+        topics = extract_topics(text)
+    st.success("Themen extrahiert!")
+
+    selected_topics = st.multiselect("Wähle ein oder mehrere Themen aus:", topics)
+    question_types = st.multiselect(
+        "Wähle einen oder mehrere Fragetypen aus:",
+        [
+            "Multiple Choice (einzelne Antwort)",
+            "Multiple Choice (mehrere Antworten, Teilpunkte)",
+            "Offene Fragen",
+            "Matching (Zuordnungen)",
+        ],
+    )
+
+    num_questions = st.slider("Anzahl der Fragen pro Thema und Fragetyp", 1, 10, 3)
     partial_points = None
     max_length = None
 
-# --- Upload literature ---
-uploaded_files = st.file_uploader("📂 Lade deine Literatur hoch (PDF/DOCX/TXT)", type=["pdf", "docx", "txt"], accept_multiple_files=True)
-
-# --- OpenAI question generator function ---
-def generate_questions(text, topic_title, question_count, q_type, partial_points=None, max_length=None):
-    # Base prompt for question generation
-    system_prompt = (
-        "Du bist ein Bildungsexperte, der Prüfungsfragen auf EQF-Niveau 6–7 erstellt. "
-        "Berücksichtige relevante Bildungstheorien, reale Unterrichtssituationen und eine wissenschaftliche Tiefe. "
-        f"Erzeuge {question_count} Fragen zum Thema '{topic_title}' im folgenden Format."
-    )
-    
-    # Define instructions depending on question type
-    if q_type == "Multiple Choice (einzelne Antwort)":
-        type_instruction = (
-            "Erzeuge Multiple-Choice-Fragen mit genau 4 Antwortmöglichkeiten, von denen genau eine korrekt ist. "
-            "Kennzeichne die richtige Antwort klar."
+    if "Multiple Choice (mehrere Antworten, Teilpunkte)" in question_types:
+        partial_points = st.text_input(
+            "Punkteschema für Multiple Choice mit Teilpunkten (z.B. 2-1-0 für richtig - teilweise richtig - falsch)",
+            value="2-1-0",
         )
-    elif q_type == "Multiple Choice (mehrere Antworten, Teilpunkte)":
-        type_instruction = (
-            "Erzeuge Multiple-Choice-Fragen mit 4 Antwortmöglichkeiten, von denen mehrere richtig sein können. "
-            f"Ordne jeder richtigen Antwort eine Teilpunktzahl von {partial_points} zu. "
-            "Kennzeichne alle korrekten Antworten deutlich."
+    if "Offene Fragen" in question_types:
+        max_length = st.number_input(
+            "Maximale Länge der Antwort bei offenen Fragen (Wörter)",
+            min_value=10,
+            max_value=200,
+            value=50,
         )
-    elif q_type == "Offene Fragen":
-        length_note = f" Die Antwort darf maximal {max_length} Zeichen lang sein." if max_length and max_length > 0 else " Die Antwortlänge ist unbegrenzt."
-        type_instruction = f"Erzeuge offene Fragen ohne Antwortoptionen.{length_note}"
-    elif q_type == "Matching (Zuordnungen)":
-        type_instruction = (
-            "Erzeuge Matching-Fragen mit klar definierten Paaren zum Zuordnen, z.B. Begriff und Definition. "
-            "Erstelle 5 Paare pro Frage."
-        )
-    else:
-        type_instruction = ""
 
-    user_prompt = (
-        f"{type_instruction}\n"
-        "Die Fragen sollen auf Deutsch sein, keine Duplikate enthalten, akademisch formuliert sein, "
-        "und für Lehramtsstudierende auf Master-Niveau geeignet sein, Theorie und Praxis verbindend.\n\n"
-        f"Verwende diesen Text als Quelle zur Inspiration:\n\n{text[:4000]}"
-    )
-    
-    # Call OpenAI ChatCompletion
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.4,
-            max_tokens=1800
-        )
-    except Exception as e:
-        st.error(f"OpenAI API-Fehler: {e}")
-        return []
+    if st.button("Fragen generieren"):
+        if not selected_topics:
+            st.error("Bitte wähle mindestens ein Thema aus.")
+        elif not question_types:
+            st.error("Bitte wähle mindestens einen Fragetyp aus.")
+        else:
+            all_questions_text = ""
+            for topic in selected_topics:
+                st.header(f"Thema: {topic}")
+                all_questions_text += f"== Thema: {topic} ==\n\n"
+                for q_type in question_types:
+                    st.subheader(f"Fragetyp: {q_type}")
+                    with st.spinner(f"Generiere Fragen für Thema '{topic}' - {q_type}..."):
+                        q_and_a = generate_questions_with_keys(
+                            text,
+                            topic,
+                            num_questions,
+                            q_type,
+                            partial_points=partial_points,
+                            max_length=max_length,
+                        )
+                    for idx, (q, a) in enumerate(q_and_a, 1):
+                        st.markdown(f"**Frage {idx}:** {q}")
+                        st.markdown(f"**Antwort:** {a}")
+                        all_questions_text += f"Frage {idx}: {q}\nAntwort: {a}\n\n"
 
-    # Basic parsing: split by double newlines to separate questions
-    questions_raw = response.choices[0].message.content.strip().split("\n\n")
-    questions = [q.strip() for q in questions_raw if len(q.strip()) > 20]
-    return questions
-
-# --- Generate button and question output ---
-if st.button("🚀 Fragen generieren"):
-    if not uploaded_files:
-        st.warning("⚠️ Bitte lade mindestens eine Literaturdatei hoch.")
-        st.stop()
-
-    with st.spinner("📚 Literaturtexte werden verarbeitet..."):
-        combined_text = "\n\n".join([extract_text(f) for f in uploaded_files])
-
-    all_questions = []
-
-    for topic in selected_topics:
-        st.markdown(f"## 🧠 Thema: {topic}")
-        try:
-            qs = generate_questions(
-                combined_text,
-                topic,
-                num_questions,
-                question_type,
-                partial_points=partial_points if 'partial_points' in locals() else None,
-                max_length=max_length if 'max_length' in locals() else None,
+            # Download button for all questions + answers
+            st.download_button(
+                label="Alle Fragen & Antwortschlüssel herunterladen",
+                data=all_questions_text,
+                file_name="fragen_antworten.txt",
+                mime="text/plain",
             )
-            if not qs:
-                st.warning(f"Keine Fragen generiert für {topic}.")
-                continue
-            for i, question in enumerate(qs, 1):
-                st.markdown(f"**Frage {i}:** {question}")
-                all_questions.append(f"{topic} - Frage {i}:\n{question}\n")
-            st.markdown(f"*Insgesamt {len(qs)} Fragen für '{topic}' generiert.*")
-        except Exception as e:
-            st.error(f"❌ Fehler bei der Generierung von Fragen für {topic}: {e}")
-
-    # Download generated questions as text file
-    if all_questions:
-        output_text = "\n".join(all_questions)
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
-        filename = f"EQF_Exam_{timestamp}.txt"
-        st.download_button("💾 Fragen als TXT herunterladen", data=output_text, file_name=filename, mime="text/plain")
+")
