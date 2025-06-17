@@ -48,6 +48,16 @@ topics = {
 }
 
 selected_topics = st.multiselect("🧠 Wähle die Themenbereiche", list(topics.keys()), default=list(topics.keys()))
+question_types = st.multiselect(
+            "Wähle einen oder mehrere Fragetypen aus:",
+            [
+                "Multiple Choice (einzelne Antwort)",
+                "Multiple Choice (mehrere Antworten, Teilpunkte)",
+                "Offene Fragen",
+                "Matching (Zuordnungen)",
+            ],
+        )
+
 
 question_type = st.selectbox("📝 Frageformat wählen", ["Gemischt", "Offene Fragen", "Multiple Choice", "Fallbasiert"])
 
@@ -81,7 +91,7 @@ def generate_questions(text, topic_title, question_count):
     )
 
     response = openai.ChatCompletion.create(
-        model="gpt-4",
+        model="gpt-4.5",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
