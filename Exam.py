@@ -2,7 +2,6 @@ import streamlit as st
 import openai
 from PyPDF2 import PdfReader
 from docx import Document
-from io import StringIO
 import datetime
 
 # --- Streamlit page configuration ---
@@ -20,7 +19,12 @@ else:
 # --- File reading functions ---
 def extract_text_from_pdf(file):
     reader = PdfReader(file)
-    return "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
+    texts = []
+    for page in reader.pages:
+        text = page.extract_text()
+        if text:
+            texts.append(text)
+    return "\n".join(texts)
 
 def extract_text_from_docx(file):
     doc = Document(file)
@@ -62,12 +66,15 @@ def generate_questions(text, topic_title, question_count):
         "Du bist ein Bildungsexperte, der Fragen auf EQF-Niveau 6–7 erstellt. "
         "Berücksichtige relevante Bildungstheorien, reale Unterrichtssituationen und "
         "eine wissenschaftliche Tiefe. Verwende eine akademische Sprache auf Deutsch. "
-        f"Jede Frage muss thematisch zum folgenden Bereich passen: '{topic_title}'"
+        f"Jede Frage muss thematisch zum folgenden Bereich passen: '{topic_title}'."
     )
 
     user_prompt = (
         f"Generiere bitte {question_count} akademische Prüfungsfragen (offen oder MC) zum Thema '{topic_title}'. "
-        f"{question_type_instruction} Verwende den folgenden deutschen Inhalt zur Inspiration:\n\n"
+        f"{question_type_instruction} "
+        "Die Fragen sollen auf Deutsch sein, keine Duplikate enthalten und das Antwortoptionenformat "
+        "dem in den Beispielprüfungen entsprechen (z.B. Anzahl der Antwortmöglichkeiten). "
+        "Verwende den folgenden deutschen Inhalt zur Inspiration:\n\n"
         f"{text[:4000]}\n\n"
         "Die Fragen sollen geeignet für Lehramtsstudierende auf Master-Niveau sein, Theorie und Praxis verbinden "
         "und kritisch-reflexives Denken fördern."
@@ -83,7 +90,13 @@ def generate_questions(text, topic_title, question_count):
         max_tokens=1800
     )
 
-    return response.choices[0].message.content.strip().split("\n\n")
+    # Split output on double newlines (may split questions if they contain paragraphs)
+    # Optionally refine parsing depending on model output format
+    questions = response.choices[0].message.content.strip().split("\n\n")
+
+    # Filter empty or too short fragments
+    questions = [q.strip() for q in questions if len(q.strip()) > 20]
+    return questions
 
 # --- Generate Button ---
 if st.button("🚀 Fragen generieren"):
@@ -104,6 +117,7 @@ if st.button("🚀 Fragen generieren"):
             for i, q in enumerate(questions, 1):
                 st.markdown(f"**Frage {i}:** {q.strip()}")
                 all_questions.append(f"{topic} - Frage {i}:\n{q.strip()}\n")
+            st.markdown(f"*Insgesamt {len(questions)} Fragen für '{topic}' generiert.*")
         except Exception as e:
             st.error(f"❌ Fehler bei der Generierung von Fragen für {topic}: {e}")
 
