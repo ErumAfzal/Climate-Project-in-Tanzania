@@ -165,4 +165,3 @@ if uploaded_file:
                 file_name="fragen_antworten.txt",
                 mime="text/plain",
             )
-")
