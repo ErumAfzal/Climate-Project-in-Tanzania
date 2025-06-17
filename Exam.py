@@ -91,12 +91,12 @@ def generate_questions(text, topic_title, question_count):
     )
 
     response = openai.ChatCompletion.create(
-        model="gpt-4.5",
+        model="gpt-4",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
-        temperature=0.4,
+        temperature=0.6,
         max_tokens=1800
     )
 
