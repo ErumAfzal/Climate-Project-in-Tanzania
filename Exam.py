@@ -6,8 +6,8 @@ import tempfile
 import json
 import pandas as pd
 from io import StringIO
-from openai import OpenAI
-from openai.error import OpenAIError
+import openai 
+
 
 # Initialize OpenAI client placeholder (we will use openai.ChatCompletion later)
 # User inputs API key in app
