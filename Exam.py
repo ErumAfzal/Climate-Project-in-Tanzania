@@ -1,103 +1,236 @@
 import streamlit as st
+from typing import List, Dict
+import fitz  # PyMuPDF
 import os
-import openai
-from PyPDF2 import PdfReader
-from docx import Document
-from typing import List
+import tempfile
+import json
+import pandas as pd
+from io import StringIO
+from openai import OpenAI
+from openai.error import OpenAIError
 
-# Set OpenAI API key from secrets
-openai.api_key = st.secrets["OPENAI_API_KEY"] if "OPENAI_API_KEY" in st.secrets else os.getenv("OPENAI_API_KEY")
+# Initialize OpenAI client placeholder (we will use openai.ChatCompletion later)
+# User inputs API key in app
 
-# ------------------------------------
-# File Handling Functions
-# ------------------------------------
-def extract_text_from_pdf(uploaded_file):
-    reader = PdfReader(uploaded_file)
-    return "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
 
-def extract_text_from_docx(uploaded_file):
-    doc = Document(uploaded_file)
-    return "\n".join([para.text for para in doc.paragraphs])
+def extract_text_from_pdf(file) -> str:
+    """Extract text from PDF file using PyMuPDF."""
+    try:
+        doc = fitz.open(stream=file.read(), filetype="pdf")
+        text = ""
+        for page in doc:
+            text += page.get_text()
+        return text
+    except Exception as e:
+        st.error(f"PDF extraction error: {e}")
+        return ""
 
-def extract_text(file):
-    if file.type == "application/pdf":
-        return extract_text_from_pdf(file)
-    elif file.name.endswith(".docx"):
-        return extract_text_from_docx(file)
-    else:
-        return file.read().decode("utf-8")
 
-# ------------------------------------
-# OpenAI Question Generation
-# ------------------------------------
-def generate_questions_with_openai(text, q_type, count):
-    system_prompt = (
-        "You are an expert educator creating academic-level assessment questions "
-        "aligned with EQF Level 6–7 (Bachelor/Master). The questions should reflect deep understanding "
-        "of pedagogical theory, including Habermas’ theory of communicative action, role-play evaluation, "
-        "strategic vs. understanding-oriented communication, and real-world teacher training."
+def prepare_prompt(
+    section: str,
+    documents_text: List[str],
+    sample_questions: str,
+    question_types: List[str],
+    number_of_questions: int,
+) -> str:
+    """Create prompt for OpenAI question generation."""
+
+    doc_excerpt = "\n---\n".join(documents_text) if documents_text else "Keine Dokumente hochgeladen."
+    qtypes_str = ", ".join(question_types) if question_types else "Mehrfachauswahl (MCQ)"
+
+    prompt = f"""
+Du bist ein Experte für Bildungswissenschaften und erstellst Prüfungsfragen auf dem Niveau des EQF 6 (Fachhochschulniveau).
+
+Arbeite mit folgenden Vorgaben:
+
+Abschnitt/Thema: {section}
+
+Verfügbare Dokumente (Auszüge): 
+{doc_excerpt}
+
+Beispielhafte Beispiel-Fragen, die als Format dienen:
+{sample_questions}
+
+Erstelle nun bitte {number_of_questions} hochwertige Prüfungsfragen, die folgende Fragearten enthalten: {qtypes_str}.
+
+Jede Frage sollte im Kontext der hochgeladenen Dokumente stehen und möglichst konkrete Textstellen oder Begriffe daraus referenzieren.
+
+Bitte gib die Fragen mit Antwortmöglichkeiten (falls MCQ) und Antwortschlüsseln zurück, strukturiert als JSON-Array mit folgendem Schema:
+
+[
+ {{
+  "frage": "Frage hier",
+  "antworten": ["Antwort A", "Antwort B", "Antwort C", "Antwort D"],
+  "richtige_antwort": "Antwort B",
+  "typ": "MCQ"
+ }},
+ ...
+]
+
+Falls offene Fragen, dann nur "frage" und "typ": "Offen".
+
+Beginne jetzt mit der Generierung.
+"""
+    return prompt
+
+
+def call_openai_api(api_key: str, prompt: str) -> str:
+    """Call OpenAI Chat Completion with given prompt."""
+    try:
+        import openai
+
+        openai.api_key = api_key
+        response = openai.ChatCompletion.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Du bist ein hilfreicher Assistent für Bildungsfragen."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.7,
+            max_tokens=1500,
+            n=1,
+        )
+        return response.choices[0].message.content.strip()
+    except OpenAIError as e:
+        st.error(f"OpenAI API Fehler: {e}")
+        return ""
+    except Exception as e:
+        st.error(f"Unbekannter Fehler bei API-Aufruf: {e}")
+        return ""
+
+
+def json_to_dataframe(questions_json: str) -> pd.DataFrame:
+    """Convert questions JSON string to pandas DataFrame for display."""
+
+    try:
+        questions = json.loads(questions_json)
+        rows = []
+        for q in questions:
+            antworten = q.get("antworten", [])
+            antworten_str = " | ".join(antworten) if antworten else ""
+            richtige_antwort = q.get("richtige_antwort", "")
+            rows.append(
+                {
+                    "Frage": q.get("frage", ""),
+                    "Antworten": antworten_str,
+                    "Richtige Antwort": richtige_antwort,
+                    "Typ": q.get("typ", ""),
+                }
+            )
+        df = pd.DataFrame(rows)
+        return df
+    except json.JSONDecodeError:
+        st.warning("Die generierten Fragen sind kein gültiges JSON.")
+        return pd.DataFrame()
+
+
+def main():
+    st.title("EQF 6 Prüfungsfragen Generator (Deutsch)")
+
+    st.markdown(
+        """
+        Dieses Tool erzeugt hochwertige Prüfungsfragen auf dem Niveau EQF 6 basierend auf hochgeladenen Dokumenten und Beispiel-Fragen.
+        """
     )
 
-    user_prompt = (
-        f"Based on the following content:\n\n"
-        f"{text[:4000]}\n\n"  # limit text for prompt token length
-        f"Generate {count} {q_type} questions suitable for Master's-level students in education. "
-        f"Each question must be theory-informed, practice-relevant, and unambiguous."
+    # API key input
+    api_key = st.text_input(
+        "OpenAI API Key eingeben", type="password", placeholder="sk-...", help="Benötigt für die Fragegenerierung"
     )
+    if not api_key:
+        st.warning("Bitte gib deinen OpenAI API Key ein, um fortzufahren.")
+        st.stop()
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
+    # Section selector
+    section = st.selectbox(
+        "Abschnitt / Modul auswählen",
+        options=[
+            "Bildung und Ungleichheit",
+            "Demokratische Bildung",
+            "Ganztagsschule",
+            "INTER A - Bildungsforschung",
+            "Kommunikation und Kommunikative Fähigkeiten",
         ],
-        temperature=0.5,
-        max_tokens=1500
     )
 
-    output = response.choices[0].message.content
-    return output.strip().split("\n\n")
+    # File uploader (up to 3)
+    uploaded_files = st.file_uploader(
+        "Bis zu 3 Dokumente hochladen (PDF, Text)", type=["pdf", "txt"], accept_multiple_files=True, key="doc_upload"
+    )
+    if uploaded_files and len(uploaded_files) > 3:
+        st.warning("Bitte lade maximal 3 Dokumente hoch.")
+        uploaded_files = uploaded_files[:3]
 
-# ------------------------------------
-# Streamlit UI
-# ------------------------------------
-st.set_page_config(page_title="EQF 6–7 Question Generator", layout="wide")
-st.title("🎓 EQF 6–7 Pedagogical Question Generator with OpenAI")
-st.markdown("Upload documents to generate **master’s-level questions** based on pedagogical theory and real-world teacher education contexts.")
+    # Extract text from uploaded docs
+    documents_text = []
+    if uploaded_files:
+        for file in uploaded_files:
+            if file.type == "application/pdf":
+                text = extract_text_from_pdf(file)
+            else:
+                text = file.read().decode("utf-8")
+            documents_text.append(text)
 
-uploaded_files = st.file_uploader("📄 Upload PDF, DOCX, or TXT files", type=["pdf", "docx", "txt"], accept_multiple_files=True)
+    # Sample questions input
+    sample_questions = st.text_area(
+        "Beispielhafte Prüfungsfragen (auf Deutsch) einfügen",
+        height=150,
+        placeholder="Hier Beispiel-Fragen im deutschen EQF 6 Stil einfügen...",
+    )
 
-st.markdown("### 🎯 Select Target Number of Questions")
-default_targets = {
-    "Multiple Choice / Single or Multi-select": 6,
-    "Zuordnung (Matching)": 2,
-    "Open Text Questions": 4,
-    "Quantitative / Numerical Entry": 2,
-    "Scenario / Applied Pedagogy MCQ": 2
-}
+    # Question types multi-select
+    question_types = st.multiselect(
+        "Fragetypen auswählen",
+        options=["MCQ", "Matching", "Offene Fragen", "Wahr/Falsch"],
+        default=["MCQ"],
+        help="Welche Fragetypen sollen generiert werden?",
+    )
 
-question_targets = {}
-cols = st.columns(len(default_targets))
-for i, (qtype, default) in enumerate(default_targets.items()):
-    with cols[i]:
-        question_targets[qtype] = st.number_input(qtype, min_value=0, value=default, key=qtype)
+    # Number of questions
+    number_of_questions = st.number_input(
+        "Anzahl der zu generierenden Fragen",
+        min_value=1,
+        max_value=50,
+        value=10,
+        step=1,
+    )
 
-if st.button("🚀 Generate Questions"):
-    if not uploaded_files:
-        st.warning("⚠️ Please upload at least one document.")
-    else:
-        with st.spinner("🧠 Extracting and analyzing text..."):
-            all_text = "\n\n".join([extract_text(file) for file in uploaded_files])
+    if st.button("Fragen generieren"):
+        with st.spinner("Generiere Fragen..."):
+            prompt = prepare_prompt(section, documents_text, sample_questions, question_types, number_of_questions)
+            result = call_openai_api(api_key, prompt)
 
-        st.success("✅ Text extracted. Generating questions now...")
+            if result:
+                st.success("Fragen erfolgreich generiert!")
 
-        for q_type, count in question_targets.items():
-            if count > 0:
-                st.subheader(f"📝 {q_type}")
-                try:
-                    questions = generate_questions_with_openai(all_text, q_type, count)
-                    for i, q in enumerate(questions, 1):
-                        st.markdown(f"**Q{i}:** {q.strip()}")
-                except Exception as e:
-                    st.error(f"❌ Error generating {q_type} questions: {e}")
-                    
+                df = json_to_dataframe(result)
+                if not df.empty:
+                    st.dataframe(df)
+                    # Download options
+                    csv = df.to_csv(index=False).encode("utf-8")
+                    json_output = result.encode("utf-8")
+                    st.download_button(
+                        label="Fragen als CSV herunterladen",
+                        data=csv,
+                        file_name=f"eqf6_questions_{section}.csv",
+                        mime="text/csv",
+                    )
+                    st.download_button(
+                        label="Fragen als JSON herunterladen",
+                        data=json_output,
+                        file_name=f"eqf6_questions_{section}.json",
+                        mime="application/json",
+                    )
+                else:
+                    st.warning("Keine Fragen zum Anzeigen gefunden.")
+            else:
+                st.error("Fehler bei der Fragegenerierung.")
+
+    st.markdown("---")
+    st.markdown(
+        "© 2025 Erum Afzal | Powered by OpenAI GPT und Streamlit"
+    )
+
+
+if __name__ == "__main__":
+    main()
