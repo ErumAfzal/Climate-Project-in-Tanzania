@@ -10,4 +10,7 @@ langchain
 pandas
 python-docx
 PyPDF2
+typing-extensions
+PyMuPDF
+
 
