@@ -6,10 +6,10 @@ import json
 
 # --- Configuration ---
 st.set_page_config(page_title="Habermas Role-Play Chatbot", layout="centered")
-st.title("🎭 Communicative Action Role-Play Simulator")
+st.title(" Communicative Action Role-Play Simulator")
 
 # --- API Key Input ---
-api_key = st.text_input("🔑 Enter your OpenAI API key:", type="password")
+api_key = st.text_input(" key:", type="password")
 if not api_key:
     st.warning("Please enter your key to continue.")
     st.stop()
@@ -45,7 +45,7 @@ You are Mr./Ms. Horn, the principal of Friedrich-Ebert-School. A teacher is aski
 - Highlight concerns about cost, substitutes, and workload  
 - Make an ironic comment like: “Isn’t this just a way to shift responsibility onto students?”
 - Dont use long sentences or give hints to the user to talk about
-- Reply to the point and just inquire about the information
+- Reply to the point and inquire about the information
 - Your role is an authoritative communication partner, and providing hints
 
 **Your Goals:**  
@@ -78,7 +78,7 @@ if "start_time" not in st.session_state:
     st.session_state.chat_log = []
 
 # --- Display Instructions ---
-st.markdown("### 📝 Instructions")
+st.markdown("### Instructions")
 st.markdown(instructions)
 
 if not st.session_state.timer_started:
@@ -89,9 +89,9 @@ if not st.session_state.timer_started:
 # --- Timer Countdown ---
 if st.session_state.timer_started and not st.session_state.chat_ready:
     elapsed = time.time() - st.session_state.start_time
-    remaining = int(120 - elapsed)
+    remaining = int(12 - elapsed)
     if remaining > 0:
-        st.info(f"⏳ Chat will start in {remaining} seconds.")
+        st.info(f" Chat will start in {remaining} seconds.")
         st.stop()
     else:
         st.session_state.chat_ready = True
