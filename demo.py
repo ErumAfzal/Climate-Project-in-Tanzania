@@ -3,101 +3,70 @@ import openai
 import time
 import os
 import json
+from gtts import gTTS
 
 # --- Configuration ---
-st.set_page_config(page_title="Habermas Role-Play Chatbot", layout="centered")
-st.title("🎭 Communicative Action Role-Play Simulator")
+st.set_page_config(page_title="Multi-Agent Role-Play Simulator", layout="centered")
+st.title("Role-Play Simulator Based on Communicative Action Theory")
+
+# --- Language Selection ---
+language = st.sidebar.selectbox("Language / Sprache", ["English", "Deutsch"])
 
 # --- API Key Input ---
-api_key = st.text_input("🔑 Enter your OpenAI API key:", type="password")
+api_key = st.text_input("Enter your OpenAI API key:", type="password")
 if not api_key:
-    st.warning("Please enter your key to continue.")
+    st.warning("Please enter your OpenAI API key to continue.")
     st.stop()
 openai.api_key = api_key
 
-# --- Role-Play Scenarios Dictionary ---
+# --- Role-Play Scenarios Dictionary (Placeholders: add full text as needed) ---
 SCENARIOS = {
-    "Role Play 1 – Self-Directed Learning (Strategic)": {
-        "instructions_en": """
-### Instructions for the Role-Playing Person (Teacher/User)
-
-Please use the information provided below to guide your conversation.  
-You have 5 minutes to prepare for the conversation.  
-You will then have up to 10 minutes to conduct the conversation.  
-Please behave in this conversation as if you were personally in such a situation.  
-You may end the conversation at any time by simply saying, “Thank you, goodbye.”
-
-**Background Information:**  
-You are a teacher at Friedrich-Ebert-School and want to attend a professional development course on “self-directed learning.” The training is important for your career growth and aligns with emerging educational trends. However, the principal does not value this approach and may deny your request. You wish to initiate a discussion to convince them.
-
-**Your Task:**  
-- Factual goal: You want to participate in the professional development course.  
-- Relational goal: You want to collaborate with your supervisor.  
-- Communication Type: Strategic  
-- Social Role: Weak
-        """,
-        "system_prompt": """
-You are Mr./Ms. Horn, the principal of Friedrich-Ebert-School. A teacher is asking for approval to attend a professional development course on “self-directed learning.” You are skeptical about this concept. You question its relevance to the current academic structure and fear it could disrupt school operations.
-
-**Your Attitude:**  
-- Reserved, questioning, yet professional and open to arguments  
-- Emphasize school-wide benefits over personal growth  
-- Highlight concerns about cost, substitutes, and workload  
-- Make ironic comment like: “Isn’t this just a way to shift responsibility onto students?”
-
-**Your Goals:**  
-- Factual: Demand a strong justification with a school-focused benefit  
-- Relational: Maintain a positive relationship with the teacher  
-- Communication Type: Strategic  
-- Social Role: Strong
-        """,
+    "Role Play 1 – Self-Directed Learning": {
+        "instructions_en": "You are a teacher requesting approval to attend a self-directed learning workshop. Your goal is to convince the principal.",
+        "instructions_de": "Sie sind eine Lehrkraft, die die Genehmigung für eine Fortbildung zum selbstgesteuerten Lernen beantragt.",
+        "system_prompt_en": "You are the principal who is skeptical about self-directed learning. Ask critical questions and demand justification.",
+        "system_prompt_de": "Sie sind die Schulleitung und skeptisch gegenüber selbstgesteuertem Lernen. Stellen Sie kritische Fragen und verlangen Sie Rechtfertigungen.",
         "type": "Strategic",
-        "social_role": {"user": "Weak", "assistant": "Strong"},
-    }
+        "social_role": {"user": "Weak", "assistant": "Strong"}
+    },
+    "Role Play 2 – Feedback Culture Introduction": {
+        "instructions_en": "You are a teacher trying to initiate a feedback culture in the department. The colleague may resist the idea.",
+        "instructions_de": "Sie möchten in Ihrer Abteilung eine Feedbackkultur einführen. Ihr/e Kolleg/in ist skeptisch.",
+        "system_prompt_en": "You are a skeptical colleague. Ask whether the feedback process is practical and valuable.",
+        "system_prompt_de": "Sie sind skeptisch gegenüber Feedbackkultur. Stellen Sie Fragen zur Umsetzbarkeit und zum Nutzen.",
+        "type": "Understanding-Oriented",
+        "social_role": {"user": "Equal", "assistant": "Equal"}
+    },
+    # Add Role Play 3-10 here...
 }
 
-# --- Sidebar Inputs ---
-st.sidebar.header("🧭 Scenario Configuration")
-language = st.sidebar.selectbox("🌐 Language", ["English"])  # Add "Deutsch" later
-scenario = st.sidebar.selectbox("🎯 Select Role-Play", list(SCENARIOS.keys()))
+# --- Sidebar Selection ---
+scenario_name = st.sidebar.selectbox("Choose Role Play", list(SCENARIOS.keys()))
+scenario = SCENARIOS[scenario_name]
 
-# --- Load Scenario Details ---
-scenario_data = SCENARIOS[scenario]
-instructions = scenario_data["instructions_en"]
-system_prompt = scenario_data["system_prompt"]
+# --- Load Scenario Instructions ---
+if language == "English":
+    instructions = scenario["instructions_en"]
+    system_prompt = scenario["system_prompt_en"]
+    lang_code = "en"
+else:
+    instructions = scenario["instructions_de"]
+    system_prompt = scenario["system_prompt_de"]
+    lang_code = "de"
 
-# --- Initial Setup for Timer + Chat ---
-if "start_time" not in st.session_state:
-    st.session_state.start_time = time.time()
-    st.session_state.timer_started = False
-    st.session_state.chat_ready = False
+# --- Display Instructions ---
+st.subheader("Instructions")
+st.markdown(instructions)
+
+# --- Start Role Play ---
+if st.button("Start Role-Play"):
+    st.session_state.chat_ready = True
     st.session_state.conversation = [{"role": "system", "content": system_prompt}]
     st.session_state.chat_log = []
 
-# --- Display Instructions ---
-st.markdown("### 📝 Instructions")
-st.markdown(instructions)
-
-if not st.session_state.timer_started:
-    if st.button("✅ I have read the instructions. Start countdown."):
-        st.session_state.start_time = time.time()
-        st.session_state.timer_started = True
-
-# --- Timer Countdown ---
-if st.session_state.timer_started and not st.session_state.chat_ready:
-    elapsed = time.time() - st.session_state.start_time
-    remaining = int(120 - elapsed)
-    if remaining > 0:
-        st.info(f"⏳ Chat will start in {remaining} seconds.")
-        st.stop()
-    else:
-        st.session_state.chat_ready = True
-        st.success("✅ You may now begin your conversation.")
-
-# --- Chat Interaction ---
-if st.session_state.chat_ready:
-    user_input = st.text_input("You (Teacher):", key="user_input")
-
+# --- Chat Loop ---
+if st.session_state.get("chat_ready", False):
+    user_input = st.text_input("You:", key="user_input")
     if st.button("Send") and user_input.strip():
         st.session_state.conversation.append({"role": "user", "content": user_input})
 
@@ -119,31 +88,19 @@ if st.session_state.chat_ready:
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
         })
 
-# --- Show Dialogue ---
-if "conversation" in st.session_state:
-    st.markdown("### 💬 Dialogue")
-    for msg in st.session_state.conversation[1:]:  # skip system
+# --- Display Chat ---
+if st.session_state.get("conversation"):
+    st.subheader("Dialogue")
+    for msg in st.session_state.conversation[1:]:  # Skip system
         if msg["role"] == "user":
             st.markdown(f"**You:** {msg['content']}")
         elif msg["role"] == "assistant":
-            st.markdown(f"**Principal:** {msg['content']}")
+            st.markdown(f"**Partner:** {msg['content']}")
 
-# --- Save and Reset ---
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("🔁 Reset Conversation"):
-        st.session_state.conversation = [{"role": "system", "content": system_prompt}]
-        st.session_state.chat_log = []
-        st.experimental_rerun()
-
-with col2:
-    if st.button("💾 Save Chat Log"):
-        filename = f"chatlog_{scenario.replace(' ', '_')}_{time.time_ns()}.json"
-        os.makedirs("logs", exist_ok=True)
-        with open(f"logs/{filename}", "w", encoding="utf-8") as f:
-            json.dump(st.session_state.chat_log, f, indent=2, ensure_ascii=False)
-        st.success(f"Chat log saved as {filename}")
-
-# --- Analysis Placeholder ---
-if st.button("📊 Analyze Conversation"):
-    st.info("Post-dialogue analysis (Gricean Maxims, Searle's Taxonomy) will be shown here.")
+# --- Save Chat Log ---
+if st.button("Save Chat Log"):
+    filename = f"chatlog_{scenario_name.replace(' ', '_')}_{time.time_ns()}.json"
+    os.makedirs("logs", exist_ok=True)
+    with open(f"logs/{filename}", "w", encoding="utf-8") as f:
+        json.dump(st.session_state.chat_log, f, indent=2, ensure_ascii=False)
+    st.success(f"Chat log saved as {filename}")
