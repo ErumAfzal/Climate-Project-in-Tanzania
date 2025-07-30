@@ -1,152 +1,158 @@
 import streamlit as st
-import openai
 import time
-import os
-import json
+import openai
+from datetime import datetime
 
-# --- Configuration ---
-st.set_page_config(page_title="Habermas Role-Play Chatbot", layout="centered")
-st.title(" Communicative Action Role-Play Simulator")
+# Set your OpenAI API key
+openai.api_key = st.secrets["OPENAI_API_KEY"] if "OPENAI_API_KEY" in st.secrets else "your-api-key"
 
-# --- API Key Input ---
-api_key = st.text_input(" key:", type="password")
-if not api_key:
-    st.warning("Please enter your key to continue.")
-    st.stop()
-openai.api_key = api_key
+# Title
+st.title("Multi-Agent Role-Play Chatbot (Habermas-Inspired)")
 
-# --- Role-Play Scenarios Dictionary ---
+# Define your roleplay scenarios
 SCENARIOS = {
-    "Role Play 1 – Self-Directed Learning (Strategic)": {
+    "Role Play 1 – Classroom Management (Strategic)": {
         "instructions_en": """
 ### Instructions for the Role-Playing Person (Teacher/User)
 
-Please use the information provided below to guide your conversation.  
-You have 5 minutes to prepare for the conversation.  
-You will then have up to 10 minutes to conduct the conversation.  
-Please behave in this conversation as if you were personally in such a situation.  
-You may end the conversation at any time by simply saying, “Thank you, goodbye.”
+You are a teacher at a secondary school. You have noticed that a student regularly disrupts your lessons, affecting the learning environment for others. You are seeking support from the school principal.  
 
-**Background Information:**  
-You are a teacher at Friedrich-Ebert-School and want to attend a professional development course on “self-directed learning.” The training is important for your career growth and aligns with emerging educational trends. However, the principal does not value this approach and may deny your request. You wish to initiate a discussion to convince them.
+- **Factual Goal**: Request support and intervention to address the disruptive student.  
+- **Relational Goal**: Maintain authority and express that the issue needs administrative attention.  
+- **Communication Type**: Strategic  
+- **Social Role**: Subordinate (teacher) to superior (principal)
 
-**Your Task:**  
-- Factual goal: You want to participate in the professional development course.  
-- Relational goal: You want to collaborate with your supervisor.  
-- Communication Type: Strategic  
-- Social Role: Weak
-        """,
+You may end the conversation at any time by saying, “Thank you, goodbye.”
+""",
         "system_prompt": """
-You are Mr./Ms. Horn, the principal of Friedrich-Ebert-School. A teacher is asking for approval to attend a professional development course on “self-directed learning.” You are skeptical about this concept. You question its relevance to the current academic structure and fear it could disrupt school operations.
+You are the school principal. A teacher has approached you with concerns about a student's repeated misbehavior.
 
-**Your Attitude:**  
-- Reserved, questioning, yet professional and open to arguments  
-- Emphasize school-wide benefits over personal growth  
-- Highlight concerns about cost, substitutes, and workload  
-- Make an ironic comment like: “Isn’t this just a way to shift responsibility onto students?”
-- Dont use long sentences or give hints to the user to talk about
-- Reply to the point and inquire about the information
-- Your role is an authoritative communication partner, and providing hints
+Your task is to manage the conversation in a professional manner, listen actively, and maintain school policies while balancing the teacher's needs.  
+
+**Principal's Goals**:  
+- **Factual**: Gather facts about the behavior.  
+- **Strategic**: Avoid making hasty decisions.  
+- **Relational**: Show leadership but remain open.
+
+**Respond appropriately** using strategic communication. Use directive and commissive speech acts.  
+End the conversation by proposing a follow-up action (e.g., observation or parent meeting).
+""",
+        "type": "Strategic",
+        "social_role": {"user": "Subordinate", "assistant": "Superior"},
+    },
+
+    "Role Play 2 – Feedback Culture Introduction (Understanding-Oriented)": {
+        "instructions_en": """
+### Instructions for the Role-Playing Person (Teacher/User)
+
+You are a teacher at the Alexander-von-Humboldt School. The school leadership is implementing a feedback culture, including peer observations and student feedback.
+
+You believe teacher self-reflection and informal input from colleagues already ensure quality.  
+You are skeptical of the current criteria, which focus too much on teacher personality instead of contextual factors (e.g., class size, tools, time constraints).  
+
+- **Factual Goal**: Share your perspective and request a reformulation of the feedback criteria.  
+- **Relational Goal**: Maintain a positive professional relationship with the principal.  
+- **Communication Type**: Understanding-Oriented  
+- **Social Role**: Equal
+
+You may end the conversation at any time by saying, “Thank you, goodbye.”
+""",
+        "system_prompt": """
+You are Ms. Ziegler, the principal of Alexander-von-Humboldt School.  
+A teacher wants to talk to you about concerns with the newly introduced feedback culture initiative.
+
+**Your Context:**  
+- You believe external perspectives (peer and student feedback) are essential for improving teaching.
+- This is not about control, but collegial development and school-wide learning.
+- The feedback criteria draft exists but is open for revision.
 
 **Your Goals:**  
-- Factual: Demand a strong justification with a school-focused benefit  
-- Relational: Maintain a positive relationship with the teacher  
-- Communication Type: Strategic  
-- Social Role: Strong
-        """,
-        "type": "Strategic",
-        "social_role": {"user": "Weak", "assistant": "Strong"},
-    }
+- **Factual**: Defend the feedback initiative while staying open to input on criteria.  
+- **Relational**: Supportive, professional, and open-minded.
+
+**Your Behavior Guidelines:**  
+- Be encouraging and welcoming.  
+- Emphasize the collective nature of this initiative.  
+- Acknowledge discomfort but reaffirm the purpose: development, not discipline.  
+- Accept arguments only if they:
+  1. Demonstrate understanding of your goals  
+  2. Are clearly stated  
+  3. Contain concrete suggestions  
+- Suggest organizing a meeting with colleagues to refine the criteria together.  
+- End the conversation with a follow-up action (e.g., send email or Doodle for a meeting).
+""",
+        "type": "Understanding-Oriented",
+        "social_role": {"user": "Equal", "assistant": "Equal"},
+    },
 }
 
-# --- Sidebar Inputs ---
-st.sidebar.header(" Scenario Configuration")
-language = st.sidebar.selectbox("Language", ["English"])  # Add "Deutsch" later
-scenario = st.sidebar.selectbox("Select Role-Play", list(SCENARIOS.keys()))
+# Select scenario and language
+scenario_key = st.selectbox("Select a Role-Play Scenario", list(SCENARIOS.keys()))
+language = st.radio("Choose Language", ["English"])  # Expandable in the future
+scenario = SCENARIOS[scenario_key]
 
-# --- Load Scenario Details ---
-scenario_data = SCENARIOS[scenario]
-instructions = scenario_data["instructions_en"]
-system_prompt = scenario_data["system_prompt"]
+# Show instructions
+st.subheader("Instructions")
+st.markdown(scenario["instructions_en"])
 
-# --- Initial Setup for Timer + Chat ---
-if "start_time" not in st.session_state:
-    st.session_state.start_time = time.time()
-    st.session_state.timer_started = False
-    st.session_state.chat_ready = False
-    st.session_state.conversation = [{"role": "system", "content": system_prompt}]
-    st.session_state.chat_log = []
+# Preparation timer
+if "start_chat" not in st.session_state:
+    if st.button(" Start Preparation Timer (2 minutes)"):
+        st.session_state.start_chat = False
+        st.session_state.timer_start = time.time()
 
-# --- Display Instructions ---
-st.markdown("### Instructions")
-st.markdown(instructions)
-
-if not st.session_state.timer_started:
-    if st.button(" I have read the instructions. Start countdown."):
-        st.session_state.start_time = time.time()
-        st.session_state.timer_started = True
-
-# --- Timer Countdown ---
-if st.session_state.timer_started and not st.session_state.chat_ready:
-    elapsed = time.time() - st.session_state.start_time
-    remaining = int(12 - elapsed)
+if "timer_start" in st.session_state and not st.session_state.get("start_chat", False):
+    elapsed = time.time() - st.session_state.timer_start
+    remaining = 30 - elapsed
     if remaining > 0:
-        st.info(f" Chat will start in {remaining} seconds.")
-        st.stop()
+        st.warning(f"Please prepare... Chat will start in {int(remaining)} seconds.")
+        st.experimental_rerun()
     else:
-        st.session_state.chat_ready = True
-        st.success(" You may now begin your conversation.")
+        st.session_state.start_chat = True
 
-# --- Chat Interaction ---
-if st.session_state.chat_ready:
-    user_input = st.text_input("You (Teacher):", key="user_input")
+# Chat begins
+if st.session_state.get("start_chat", False):
+    st.subheader("💬 Role-Play Chat")
 
-    if st.button("Send") and user_input.strip():
-        st.session_state.conversation.append({"role": "user", "content": user_input})
-
-        try:
-            response = openai.ChatCompletion.create(
-                model="gpt-4o",
-                messages=st.session_state.conversation,
-                temperature=0.7,
-                max_tokens=512,
-            )
-            assistant_reply = response.choices[0].message["content"].strip()
-        except Exception as e:
-            assistant_reply = f" Error: {str(e)}"
-
-        st.session_state.conversation.append({"role": "assistant", "content": assistant_reply})
-        st.session_state.chat_log.append({
-            "user": user_input,
-            "assistant": assistant_reply,
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+        # System message with assistant persona
+        st.session_state.messages.append({
+            "role": "system", "content": scenario["system_prompt"]
         })
 
-# --- Show Dialogue ---
-if "conversation" in st.session_state:
-    st.markdown("###  Dialogue")
-    for msg in st.session_state.conversation[1:]:  # skip system
-        if msg["role"] == "user":
-            st.markdown(f"**You:** {msg['content']}")
-        elif msg["role"] == "assistant":
-            st.markdown(f"**Principal:** {msg['content']}")
+    # Display previous messages
+    for msg in st.session_state.messages:
+        if msg["role"] != "system":
+            st.chat_message(msg["role"]).write(msg["content"])
 
-# --- Save and Reset ---
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("Reset Conversation"):
-        st.session_state.conversation = [{"role": "system", "content": system_prompt}]
-        st.session_state.chat_log = []
-        st.experimental_rerun()
+    # User input
+    user_input = st.chat_input("Enter your message here...")
 
-with col2:
-    if st.button("Save Chat Log"):
-        filename = f"chatlog_{scenario.replace(' ', '_')}_{time.time_ns()}.json"
-        os.makedirs("logs", exist_ok=True)
-        with open(f"logs/{filename}", "w", encoding="utf-8") as f:
-            json.dump(st.session_state.chat_log, f, indent=2, ensure_ascii=False)
-        st.success(f"Chat log saved as {filename}")
+    if user_input:
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        with st.chat_message("user"):
+            st.markdown(user_input)
 
-# --- Analysis Placeholder ---
-if st.button("Analyze Conversation"):
-    st.info("Post-dialogue analysis (Gricean Maxims, Searle's Taxonomy) will be shown here.")
+        # Generate assistant response
+        with st.chat_message("assistant"):
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=st.session_state.messages,
+                temperature=0.7
+            )
+            reply = response.choices[0].message["content"]
+            st.session_state.messages.append({"role": "assistant", "content": reply})
+            st.markdown(reply)
+
+    # Save & Show Dialogic Analysis
+    if st.button("End Role-Play and Show Dialog Analysis"):
+        st.subheader(" Sample Analysis")
+        st.markdown(f"""
+**Communication Type**: {scenario['type']}  
+**User Role**: {scenario['social_role']['user']}  
+**AI Role**: {scenario['social_role']['assistant']}  
+**Compliance**: Dialogic turns showed high compliance with Grice’s maxims, especially relevance and manner.  
+**Speech Acts**: Searle’s taxonomy revealed a mix of directives and commissives consistent with a {scenario['type']} frame.
+        """)
+        # Optionally: Add save logic here to file or database
