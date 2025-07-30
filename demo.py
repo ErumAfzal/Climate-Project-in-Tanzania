@@ -117,18 +117,18 @@ scenario_key = st.selectbox("Select a Role Play Scenario", list(SCENARIOS.keys()
 language = st.radio("Language", ["English"])  # You can add "German" later
 
 if scenario_key:
-    st.subheader("📋 Scenario Instructions")
+    st.subheader("Scenario Instructions")
     st.markdown(SCENARIOS[scenario_key]["instructions_en"])
 
-    if st.button("🕒 Start Simulation"):
+    if st.button("Start Simulation"):
         st.session_state["start_time"] = time.time()
         st.session_state["can_chat"] = False
 
 # Wait 2 minutes before chat begins
 if "start_time" in st.session_state:
     elapsed = time.time() - st.session_state["start_time"]
-    if elapsed < 120:
-        st.info(f"⏳ Please wait {int(120 - elapsed)} seconds to begin the chat.")
+    if elapsed < 12:
+        st.info(f"⏳ Please wait {int(12 - elapsed)} seconds to begin the chat.")
     else:
         st.session_state["can_chat"] = True
 
