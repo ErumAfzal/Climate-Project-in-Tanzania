@@ -1,157 +1,149 @@
 import streamlit as st
 import openai
 import time
+import os
+import json
 
 # --- Configuration ---
-openai.api_key = st.secrets["OPENAI_API_KEY"] if "OPENAI_API_KEY" in st.secrets else "your-api-key-here"
+st.set_page_config(page_title="Habermas Role-Play Chatbot", layout="centered")
+st.title("🎭 Communicative Action Role-Play Simulator")
 
-# --- Scenario Definitions ---
+# --- API Key Input ---
+api_key = st.text_input("🔑 Enter your OpenAI API key:", type="password")
+if not api_key:
+    st.warning("Please enter your key to continue.")
+    st.stop()
+openai.api_key = api_key
+
+# --- Role-Play Scenarios Dictionary ---
 SCENARIOS = {
-    "Role Play 1 – Professional Development (Strategic)": {
+    "Role Play 1 – Self-Directed Learning (Strategic)": {
         "instructions_en": """
 ### Instructions for the Role-Playing Person (Teacher/User)
 
 Please use the information provided below to guide your conversation.  
-You have 5 minutes to prepare and up to 10 minutes to conduct the conversation.  
-Please behave in the current conversation as if you yourself were in such a situation.  
-You may end the conversation at any time. Just say: “Thanks, goodbye.”
+You have 5 minutes to prepare for the conversation.  
+You will then have up to 10 minutes to conduct the conversation.  
+Please behave in this conversation as if you were personally in such a situation.  
+You may end the conversation at any time by simply saying, “Thank you, goodbye.”
 
 **Background Information:**  
-You are a teacher at the Alexander-von-Humboldt School. A call for proposals for further training has just been issued.  
-
-**Your Plan:**  
-You want to propose a two-day seminar on “Adaptive Learning Platforms in Heterogeneous Classrooms.”  
-The training costs €2,300 and would be held by an external trainer.  
-
-You see the potential to improve your digital teaching and want to invite colleagues, especially in STEM.  
-You expect the school to cover the full cost.  
+You are a teacher at Friedrich-Ebert-School and want to attend a professional development course on “self-directed learning.” The training is important for your career growth and aligns with emerging educational trends. However, the principal does not value this approach and may deny your request. You wish to initiate a discussion to convince them.
 
 **Your Task:**  
-- **Factual Goal:** Get the principal’s approval for your proposal and full funding.  
-- **Relational Goal:** Be perceived as committed and innovative.  
-- **Communication Type:** Strategic  
-- **Social Role:** Hierarchical
-""",
+- Factual goal: You want to participate in the professional development course.  
+- Relational goal: You want to collaborate with your supervisor.  
+- Communication Type: Strategic  
+- Social Role: Weak
+        """,
         "system_prompt": """
-You are Ms. Ziegler, the principal of Alexander-von-Humboldt School.  
-A teacher wants to propose a training on digital tools for teaching.
+You are Mr./Ms. Horn, the principal of Friedrich-Ebert-School. A teacher is asking for approval to attend a professional development course on “self-directed learning.” You are skeptical about this concept. You question its relevance to the current academic structure and fear it could disrupt school operations.
 
-**Your Context:**  
-- You support digital initiatives but must manage a limited school budget.  
-- The proposal should benefit the whole team and align with school development goals.  
-- You are skeptical of high-cost external seminars.
+**Your Attitude:**  
+- Reserved, questioning, yet professional and open to arguments  
+- Emphasize school-wide benefits over personal growth  
+- Highlight concerns about cost, substitutes, and workload  
+- Make ironic comment like: “Isn’t this just a way to shift responsibility onto students?”
 
 **Your Goals:**  
-- **Factual:** Assess whether the training fits the school’s goals and if it can be funded.  
-- **Relational:** Encourage initiative but stay budget-conscious.
-
-**Your Behavior Guidelines:**  
-- Start the conversation openly and let the teacher explain.  
-- Emphasize the need for cost-benefit and team impact.  
-- Ask questions: “How many colleagues would benefit?”, “Can a similar topic be done internally?”  
-- Approve only if the teacher:
-  1. Shows clear benefit for the team  
-  2. Offers co-financing ideas  
-  3. Connects the seminar with school strategy
-""",
+- Factual: Demand a strong justification with a school-focused benefit  
+- Relational: Maintain a positive relationship with the teacher  
+- Communication Type: Strategic  
+- Social Role: Strong
+        """,
         "type": "Strategic",
-        "social_role": {"user": "Subordinate", "assistant": "Superior"},
-    },
-
-    "Role Play 2 – Feedback Culture Introduction (Understanding-Oriented)": {
-        "instructions_en": """
-### Instructions for the Role-Playing Person (Teacher/User)
-
-Please use the information provided below to guide your conversation.  
-You have 5 minutes to prepare and up to 10 minutes to conduct the conversation.  
-Please behave in the current conversation as if you yourself were in such a situation.  
-You may end the conversation at any time. Just say: “Thanks, goodbye.”
-
-**Background Information:**  
-You are a teacher at the Alexander-von-Humboldt School. The school leadership is implementing a feedback culture, including peer observations and student feedback.  
-
-You believe teacher self-reflection and informal input from colleagues already ensure quality.  
-You are skeptical of the current criteria, which focus too much on teacher personality instead of contextual factors (e.g., class size, tools, time constraints).  
-
-**Your Task:**  
-- **Factual Goal:** Share your perspective and request a reformulation of the feedback criteria.  
-- **Relational Goal:** Maintain a positive professional relationship with the principal.  
-- **Communication Type:** Understanding-Oriented  
-- **Social Role:** Equal
-""",
-        "system_prompt": """
-You are Ms. Ziegler, the principal of Alexander-von-Humboldt School.  
-A teacher wants to talk to you about concerns with the newly introduced feedback culture initiative.
-
-**Your Context:**  
-- You believe external perspectives (peer and student feedback) are essential for improving teaching.
-- This is not about control, but collegial development and school-wide learning.
-- The feedback criteria draft exists but is open for revision.
-
-**Your Goals:**  
-- **Factual:** Defend the feedback initiative while staying open to input on criteria.  
-- **Relational:** Supportive, professional, and open-minded.
-
-**Your Behavior Guidelines:**  
-- Be encouraging and welcoming.  
-- Emphasize the collective nature of this initiative.  
-- Acknowledge discomfort but reaffirm the purpose: development, not discipline.  
-- Accept arguments only if they:
-  1. Demonstrate understanding of your goals  
-  2. Are clearly stated  
-  3. Contain concrete suggestions  
-- Suggest organizing a meeting with colleagues to refine the criteria together.  
-- End the conversation with a follow-up action (e.g., send email or Doodle for meeting).
-""",
-        "type": "Understanding-Oriented",
-        "social_role": {"user": "Equal", "assistant": "Equal"},
-    },
+        "social_role": {"user": "Weak", "assistant": "Strong"},
+    }
 }
 
-# --- Streamlit UI ---
-st.set_page_config(page_title="Communicative Action Role-Play Chatbot", layout="wide")
-st.title("🎭 Communicative Action Simulation Chatbot")
+# --- Sidebar Inputs ---
+st.sidebar.header("🧭 Scenario Configuration")
+language = st.sidebar.selectbox("🌐 Language", ["English"])  # Add "Deutsch" later
+scenario = st.sidebar.selectbox("🎯 Select Role-Play", list(SCENARIOS.keys()))
 
-# Role-play selection
-scenario_key = st.selectbox("Select a Role Play Scenario", list(SCENARIOS.keys()))
-language = st.radio("Language", ["English"])  # You can add "German" later
+# --- Load Scenario Details ---
+scenario_data = SCENARIOS[scenario]
+instructions = scenario_data["instructions_en"]
+system_prompt = scenario_data["system_prompt"]
 
-if scenario_key:
-    st.subheader("Scenario Instructions")
-    st.markdown(SCENARIOS[scenario_key]["instructions_en"])
+# --- Initial Setup for Timer + Chat ---
+if "start_time" not in st.session_state:
+    st.session_state.start_time = time.time()
+    st.session_state.timer_started = False
+    st.session_state.chat_ready = False
+    st.session_state.conversation = [{"role": "system", "content": system_prompt}]
+    st.session_state.chat_log = []
 
-    if st.button("Start Simulation"):
-        st.session_state["start_time"] = time.time()
-        st.session_state["can_chat"] = False
+# --- Display Instructions ---
+st.markdown("### 📝 Instructions")
+st.markdown(instructions)
 
-# Wait 2 minutes before chat begins
-if "start_time" in st.session_state:
-    elapsed = time.time() - st.session_state["start_time"]
-    if elapsed < 12:
-        st.info(f"⏳ Please wait {int(12 - elapsed)} seconds to begin the chat.")
+if not st.session_state.timer_started:
+    if st.button("✅ I have read the instructions. Start countdown."):
+        st.session_state.start_time = time.time()
+        st.session_state.timer_started = True
+
+# --- Timer Countdown ---
+if st.session_state.timer_started and not st.session_state.chat_ready:
+    elapsed = time.time() - st.session_state.start_time
+    remaining = int(120 - elapsed)
+    if remaining > 0:
+        st.info(f"⏳ Chat will start in {remaining} seconds.")
+        st.stop()
     else:
-        st.session_state["can_chat"] = True
+        st.session_state.chat_ready = True
+        st.success("✅ You may now begin your conversation.")
 
-# --- Chat Interface ---
-if st.session_state.get("can_chat"):
-    if "chat_history" not in st.session_state:
-        st.session_state.chat_history = []
+# --- Chat Interaction ---
+if st.session_state.chat_ready:
+    user_input = st.text_input("You (Teacher):", key="user_input")
 
-    user_input = st.chat_input("Your message:")
-    if user_input:
-        st.session_state.chat_history.append({"role": "user", "content": user_input})
+    if st.button("Send") and user_input.strip():
+        st.session_state.conversation.append({"role": "user", "content": user_input})
 
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": SCENARIOS[scenario_key]["system_prompt"]},
-                *st.session_state.chat_history,
-            ]
-        )
-        reply = response['choices'][0]['message']['content']
-        st.session_state.chat_history.append({"role": "assistant", "content": reply})
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4o",
+                messages=st.session_state.conversation,
+                temperature=0.7,
+                max_tokens=512,
+            )
+            assistant_reply = response.choices[0].message["content"].strip()
+        except Exception as e:
+            assistant_reply = f"⚠️ Error: {str(e)}"
 
-    # Display conversation
-    for msg in st.session_state.chat_history:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
+        st.session_state.conversation.append({"role": "assistant", "content": assistant_reply})
+        st.session_state.chat_log.append({
+            "user": user_input,
+            "assistant": assistant_reply,
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+        })
+
+# --- Show Dialogue ---
+if "conversation" in st.session_state:
+    st.markdown("### 💬 Dialogue")
+    for msg in st.session_state.conversation[1:]:  # skip system
+        if msg["role"] == "user":
+            st.markdown(f"**You:** {msg['content']}")
+        elif msg["role"] == "assistant":
+            st.markdown(f"**Principal:** {msg['content']}")
+
+# --- Save and Reset ---
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("🔁 Reset Conversation"):
+        st.session_state.conversation = [{"role": "system", "content": system_prompt}]
+        st.session_state.chat_log = []
+        st.experimental_rerun()
+
+with col2:
+    if st.button("💾 Save Chat Log"):
+        filename = f"chatlog_{scenario.replace(' ', '_')}_{time.time_ns()}.json"
+        os.makedirs("logs", exist_ok=True)
+        with open(f"logs/{filename}", "w", encoding="utf-8") as f:
+            json.dump(st.session_state.chat_log, f, indent=2, ensure_ascii=False)
+        st.success(f"Chat log saved as {filename}")
+
+# --- Analysis Placeholder ---
+if st.button("📊 Analyze Conversation"):
+    st.info("Post-dialogue analysis (Gricean Maxims, Searle's Taxonomy) will be shown here.")
