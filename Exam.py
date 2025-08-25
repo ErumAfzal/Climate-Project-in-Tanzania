@@ -1,127 +1,174 @@
-# roleplay_chat_simulation.py
-# Streamlit app for humanized, multi-turn role-play conversations (10 scenarios)
-# Author: OpenAI GPT-5 Mini
-# Usage: streamlit run roleplay_chat_simulation.py
-
 import streamlit as st
+import random
+import time
 
-# ---------------------------
-# Helper functions
-# ---------------------------
+# --- Initialize session state safely ---
+if "messages" not in st.session_state:
+    st.session_state.messages = []  # stores chat history
 
-def initialize_session_state():
-    if 'chat_history' not in st.session_state:
-        st.session_state.chat_history = []
-    if 'user_input' not in st.session_state:
-        st.session_state.user_input = ""
-    if 'current_scenario' not in st.session_state:
-        st.session_state.current_scenario = None
+if "user_input" not in st.session_state:
+    st.session_state.user_input = ""  # stores current input
 
-def add_message(role, message):
-    st.session_state.chat_history.append({"role": role, "message": message})
+if "role_play" not in st.session_state:
+    st.session_state.role_play = "Select a Role Play"
 
-def get_roleplay_prompt(scenario_id):
-    """
-    Returns initial system message or AI prompt for each scenario.
-    Humanized, English version.
-    """
-    roleplay_prompts = {
-        1: "You are a teacher discussing a student's math grade with a concerned parent. Respond kindly, clearly, and humanly, explaining the reasoning and listening carefully.",
-        2: "You are a teacher moderating a class discussion about a study trip. Respond thoughtfully, listen to students, and guide the discussion democratically.",
-        3: "You are a career advisor talking with a student about their post-graduation plans. Provide supportive guidance, ask clarifying questions, and help explore options.",
-        4: "You are a teacher discussing a new feedback culture with your principal. Be professional, give your opinions carefully, and suggest constructive changes.",
-        5: "You are collaborating with a colleague to develop a parent interview guide. Be cooperative, suggest relevant aspects, and consider the colleague's perspective.",
-        6: "You are discussing self-directed learning training with your supervisor. Humanize your responses, express hesitations and clarifications naturally, and connect it to school goals.",
-        7: "You are a student explaining why you want to go to a particular historical site for a study trip. Make your arguments politely, but firmly, and listen to the teacher's advice.",
-        8: "You are a student discussing career choices with a teacher. Express creative ambitions and realistic concerns, asking for guidance without being forced.",
-        9: "You are a teacher sharing skepticism about a new evaluation culture with your principal. Be clear, constructive, and suggest ways to improve the process.",
-        10: "You are a teacher brainstorming a parent interview guide with a colleague. Suggest ideas, give examples, and respond respectfully to counterpoints."
-    }
-    return roleplay_prompts.get(scenario_id, "You are a participant in a professional role-play scenario. Respond politely and clearly.")
+# --- Define role-play data ---
+ROLE_PLAYS = {
+    "Role Play 1": {
+        "description": "You are a teacher at Astrid-Lindgren-School discussing team coordination...",
+        "persona": "Teacher addressing a colleague about deadlines, trying to remain constructive.",
+        "instructions": """
+1. Stay professional but constructive.
+2. Explain your viewpoint clearly.
+3. Listen actively to the colleague.
+4. Goal: Improve team coordination without conflict.
+"""
+    },
+    "Role Play 2": {
+        "description": "You are Mr/Ms Krause, a teacher confident about time management...",
+        "persona": "Respond constructively while remaining relaxed, using standard phrases.",
+        "instructions": """
+1. Maintain relaxed and confident demeanor.
+2. Support colleagues if needed.
+3. Goal: Resolve timing conflicts without stress.
+"""
+    },
+    "Role Play 3": {
+        "description": "You are a trainee teacher handling a chronically late student...",
+        "persona": "Directly address the student, explain consequences, remain firm.",
+        "instructions": """
+1. Address the lateness issue calmly but firmly.
+2. Explain classroom rules and consequences.
+3. Goal: Encourage punctuality.
+"""
+    },
+    "Role Play 4": {
+        "description": "You are a student who frequently comes late, with excuses...",
+        "persona": "Minimize immediate consequences, try to negotiate, remain polite.",
+        "instructions": """
+1. Give excuses politely and reasonably.
+2. Try to negotiate consequences.
+3. Goal: Avoid major penalties.
+"""
+    },
+    "Role Play 5": {
+        "description": "Requesting a reduction of working hours from your principal...",
+        "persona": "Explain personal motivations, maintain good relationship, handle objections.",
+        "instructions": """
+1. Be clear about your reasons.
+2. Remain professional and respectful.
+3. Goal: Achieve working hour reduction without conflict.
+"""
+    },
+    "Role Play 6": {
+        "description": "Parent-teacher conversation about student's math grade...",
+        "persona": "Justify the grade while remaining open to discussion and empathetic.",
+        "instructions": """
+1. Present the grade rationale clearly.
+2. Listen to parent's concerns.
+3. Goal: Maintain fairness while fostering understanding.
+"""
+    },
+    "Role Play 7": {
+        "description": "Moderating a student discussion about class field trip destination...",
+        "persona": "Encourage fair discussion, ensure all voices are heard, explain moderation role.",
+        "instructions": """
+1. Facilitate equitable discussion.
+2. Explain your role as moderator.
+3. Goal: Reach a consensus acceptable to most students.
+"""
+    },
+    "Role Play 8": {
+        "description": "Career counseling session with a student considering creative vs secure paths...",
+        "persona": "Listen, guide, provide structured advice without imposing personal opinion.",
+        "instructions": """
+1. Ask guiding questions.
+2. Offer structured but neutral advice.
+3. Goal: Help student clarify career options.
+"""
+    },
+    "Role Play 9": {
+        "description": "Teacher discussing feedback culture with principal...",
+        "persona": "Present perspective, suggest improvements, maintain respectful dialogue.",
+        "instructions": """
+1. Present your suggestions clearly.
+2. Maintain respect for authority.
+3. Goal: Influence feedback criteria positively while cooperating.
+"""
+    },
+    "Role Play 10": {
+        "description": "Collaborating on an parents' interview guideline to gather student-related insights...",
+        "persona": "Generate aspects for discussion, validate partner’s points, maintain cooperative tone.",
+        "instructions": """
+1. Brainstorm relevant aspects collaboratively.
+2. Validate colleagues’ points.
+3. Goal: Generate comprehensive and practical guidelines.
+"""
+    },
+}
 
-def generate_ai_response(user_input, scenario_id):
-    """
-    Humanized AI response logic.
-    For demonstration, uses simple scripted/humanized style.
-    In production, could integrate GPT API for dynamic responses.
-    """
-    base_prompt = get_roleplay_prompt(scenario_id)
-    
-    # Simple humanized behavior: hesitations, clarifications, friendly tone
-    if "?" in user_input:
-        response = f"Hmm, that's a good question. Let me think... Well, regarding that, {user_input.lower()} I believe we could approach it this way."
-    elif any(word in user_input.lower() for word in ["concerned", "worried", "problem", "issue"]):
-        response = f"I understand your concern. Honestly, it can be challenging, but let's look at it step by step."
-    elif len(user_input.strip()) == 0:
-        response = "Could you please clarify what you mean?"
-    else:
-        response = f"Ah, I see. So you're saying: '{user_input}'. That makes sense. Let's discuss this a bit further."
-    
-    # Add slight human hesitation
-    response = "Hmm... " + response
-    return response
-
-# ---------------------------
-# Streamlit App
-# ---------------------------
-
-st.set_page_config(page_title="Role-Play Chat Simulation", layout="wide")
-
-st.title("Professional Role-Play Chat Simulation")
+# --- Streamlit UI ---
+st.set_page_config(page_title="Role Play Simulator", layout="wide")
+st.title("Interactive Role Play Simulator")
 st.markdown("""
-Welcome! Select one of the 10 role-play scenarios below and engage in a humanized, multi-turn conversation.
-The AI will respond with natural pauses, clarifications, and friendly tone.
+This platform allows you to simulate and practice professional role-play scenarios.
+Select a role play from the sidebar and interact as you would in a real conversation.
 """)
 
-initialize_session_state()
+# --- Sidebar for role play selection ---
+st.sidebar.header("Select Role Play")
+st.session_state.role_play = st.sidebar.selectbox(
+    "Role Play Scenario",
+    options=list(ROLE_PLAYS.keys())
+)
 
-# Scenario selection
-scenario_options = [
-    "1: Student Math Grade Discussion",
-    "2: Class Study Trip Moderation",
-    "3: Career Counseling Session",
-    "4: Feedback Culture Discussion with Principal",
-    "5: Parent Interview Guide Development",
-    "6: Self-Directed Learning Training Discussion",
-    "7: Student Study Trip Proposal",
-    "8: Career Choices Consultation",
-    "9: Evaluation Culture Skepticism",
-    "10: Brainstorm Parent Interview Guide"
-]
+# --- Show description, persona, and instructions ---
+role_info = ROLE_PLAYS[st.session_state.role_play]
 
-selected_scenario = st.selectbox("Select Role-Play Scenario", scenario_options)
+st.subheader(f"{st.session_state.role_play}")
+st.markdown(f"**Scenario:** {role_info['description']}")
+st.markdown(f"**Persona Guidance:** {role_info['persona']}")
 
-if selected_scenario != st.session_state.current_scenario:
-    # Reset chat for new scenario
-    st.session_state.chat_history = []
-    st.session_state.user_input = ""
-    st.session_state.current_scenario = selected_scenario
-    add_message("AI", f"Hello! Welcome to scenario '{selected_scenario}'. Let's start our conversation. How would you like to begin?")
+st.expander("View Role Play Instructions", expanded=True).markdown(role_info['instructions'])
 
-# Chat history display
+# --- Chat interface ---
 st.subheader("Conversation")
 chat_container = st.container()
 with chat_container:
-    for chat in st.session_state.chat_history:
-        if chat["role"] == "AI":
-            st.markdown(f"**AI:** {chat['message']}")
+    for message in st.session_state.messages:
+        if message["role"] == "user":
+            st.markdown(f"**You:** {message['content']}")
         else:
-            st.markdown(f"**You:** {chat['message']}")
+            st.markdown(f"**Simulator:** {message['content']}")
 
-# User input
-st.subheader("Your Input")
-user_input = st.text_input("Type your message here...", key="user_input")
+# --- Humanized AI response generator ---
+def generate_humanized_response(user_text):
+    hesitations = ["Hmm,", "Well,", "I see,", "Right,", "Ah,"]
+    filler = ["let me think...", "that's interesting.", "okay.", "I understand."]
+    time.sleep(0.5)  # simulate thinking
+    return f"{random.choice(hesitations)} {random.choice(filler)} About what you said: '{user_text}', how would you like to proceed?"
 
-if st.button("Send") and user_input.strip() != "":
-    # Add user message
-    add_message("User", user_input)
-    
-    # Generate AI response
-    ai_reply = generate_ai_response(user_input, int(st.session_state.current_scenario.split(":")[0]))
-    add_message("AI", ai_reply)
-    
-    # Clear input box
+# --- Handle user input ---
+def handle_user_input():
+    user_text = st.session_state.user_input.strip()
+    if user_text:
+        # Append user message
+        st.session_state.messages.append({"role": "user", "content": user_text})
+
+        # Generate AI response
+        ai_response = generate_humanized_response(user_text)
+        st.session_state.messages.append({"role": "ai", "content": ai_response})
+
+        # Clear input safely
+        st.session_state.user_input = ""
+
+st.text_input(
+    "Your input:",
+    key="user_input",
+    on_change=handle_user_input
+)
+
+# --- Reset chat button ---
+if st.button("Reset Chat"):
+    st.session_state.messages = []
     st.session_state.user_input = ""
-    
-    # Scroll to bottom (workaround)
-    st.experimental_rerun()
