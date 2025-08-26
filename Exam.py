@@ -6,9 +6,9 @@ st.set_page_config(page_title="Multi-Agent Roleplay", layout="wide")
 
 st.title("Multi-Agent Roleplay based Chatbot for Teacher Training on Habermas's Communication Theory")
 
-api_key = st.text_input("Enter your OpenAI API Key", type="password")
+api_key = st.text_input("Enter your Password/Key", type="password")
 if not api_key:
-    st.warning("Please enter your API key to continue.")
+    st.warning("Please enter your key to continue.")
     st.stop()
 openai.api_key = api_key
 
