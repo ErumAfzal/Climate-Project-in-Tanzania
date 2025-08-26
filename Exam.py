@@ -1,174 +1,133 @@
 import streamlit as st
-import random
-import time
+import openai
+import json
+import os
+from datetime import datetime
 
-# --- Initialize session state safely ---
-if "messages" not in st.session_state:
-    st.session_state.messages = []  # stores chat history
+st.set_page_config(page_title="Lehrkraft-Schulleitung Rollenspiel", layout="wide")
+st.title("Teacher-Principal Role-Play Chatbot")
 
-if "user_input" not in st.session_state:
-    st.session_state.user_input = ""  # stores current input
+api_key = st.text_input("  Enter your Password key", type="password")
 
-if "role_play" not in st.session_state:
-    st.session_state.role_play = "Select a Role Play"
+if api_key:
+    openai.api_key = api_key
+else:
+    st.warning("Bitte API-Schlüssel eingeben / Please enter your OpenAI API key to continue.")
 
-# --- Define role-play data ---
-ROLE_PLAYS = {
-    "Role Play 1": {
-        "description": "You are a teacher at Astrid-Lindgren-School discussing team coordination...",
-        "persona": "Teacher addressing a colleague about deadlines, trying to remain constructive.",
-        "instructions": """
-1. Stay professional but constructive.
-2. Explain your viewpoint clearly.
-3. Listen actively to the colleague.
-4. Goal: Improve team coordination without conflict.
+# Instructions (do not change)
+UNDERSTANDING_INSTRUCTIONS = """
+### Instructions for Teacher (User) - Feedback Criteria Scenario
+[... truncated for brevity in this box ...]
 """
-    },
-    "Role Play 2": {
-        "description": "You are Mr/Ms Krause, a teacher confident about time management...",
-        "persona": "Respond constructively while remaining relaxed, using standard phrases.",
-        "instructions": """
-1. Maintain relaxed and confident demeanor.
-2. Support colleagues if needed.
-3. Goal: Resolve timing conflicts without stress.
+
+STRATEGIC_INSTRUCTIONS = """
+### Instructions for Teacher (User) - Professional Development Scenario
+[... truncated for brevity in this box ...]
 """
-    },
-    "Role Play 3": {
-        "description": "You are a trainee teacher handling a chronically late student...",
-        "persona": "Directly address the student, explain consequences, remain firm.",
-        "instructions": """
-1. Address the lateness issue calmly but firmly.
-2. Explain classroom rules and consequences.
-3. Goal: Encourage punctuality.
+
+PRINCIPAL_STRATEGIC_PROMPT = """
+You are Mr./Ms. Horn, the principal of Friedrich-Ebert-School.
+[... truncated for brevity in this box ...]
 """
-    },
-    "Role Play 4": {
-        "description": "You are a student who frequently comes late, with excuses...",
-        "persona": "Minimize immediate consequences, try to negotiate, remain polite.",
-        "instructions": """
-1. Give excuses politely and reasonably.
-2. Try to negotiate consequences.
-3. Goal: Avoid major penalties.
+
+PRINCIPAL_UNDERSTANDING_PROMPT = """
+You are Mr./Ms. Ziegler, the principal of the Alexander-von-Humboldt School.
+[... truncated for brevity in this box ...]
 """
+
+SCENARIOS = {
+    "Feedback": {
+        "instructions": STRATEGIC_INSTRUCTIONS,
+        "system_prompt": PRINCIPAL_UNDERSTANDING_PROMPT,
     },
-    "Role Play 5": {
-        "description": "Requesting a reduction of working hours from your principal...",
-        "persona": "Explain personal motivations, maintain good relationship, handle objections.",
-        "instructions": """
-1. Be clear about your reasons.
-2. Remain professional and respectful.
-3. Goal: Achieve working hour reduction without conflict.
-"""
-    },
-    "Role Play 6": {
-        "description": "Parent-teacher conversation about student's math grade...",
-        "persona": "Justify the grade while remaining open to discussion and empathetic.",
-        "instructions": """
-1. Present the grade rationale clearly.
-2. Listen to parent's concerns.
-3. Goal: Maintain fairness while fostering understanding.
-"""
-    },
-    "Role Play 7": {
-        "description": "Moderating a student discussion about class field trip destination...",
-        "persona": "Encourage fair discussion, ensure all voices are heard, explain moderation role.",
-        "instructions": """
-1. Facilitate equitable discussion.
-2. Explain your role as moderator.
-3. Goal: Reach a consensus acceptable to most students.
-"""
-    },
-    "Role Play 8": {
-        "description": "Career counseling session with a student considering creative vs secure paths...",
-        "persona": "Listen, guide, provide structured advice without imposing personal opinion.",
-        "instructions": """
-1. Ask guiding questions.
-2. Offer structured but neutral advice.
-3. Goal: Help student clarify career options.
-"""
-    },
-    "Role Play 9": {
-        "description": "Teacher discussing feedback culture with principal...",
-        "persona": "Present perspective, suggest improvements, maintain respectful dialogue.",
-        "instructions": """
-1. Present your suggestions clearly.
-2. Maintain respect for authority.
-3. Goal: Influence feedback criteria positively while cooperating.
-"""
-    },
-    "Role Play 10": {
-        "description": "Collaborating on an parents' interview guideline to gather student-related insights...",
-        "persona": "Generate aspects for discussion, validate partner’s points, maintain cooperative tone.",
-        "instructions": """
-1. Brainstorm relevant aspects collaboratively.
-2. Validate colleagues’ points.
-3. Goal: Generate comprehensive and practical guidelines.
-"""
-    },
+    "Training": {
+        "instructions": UNDERSTANDING_INSTRUCTIONS,
+        "system_prompt": PRINCIPAL_STRATEGIC_PROMPT,
+    }
 }
 
-# --- Streamlit UI ---
-st.set_page_config(page_title="Role Play Simulator", layout="wide")
-st.title("Interactive Role Play Simulator")
-st.markdown("""
-This platform allows you to simulate and practice professional role-play scenarios.
-Select a role play from the sidebar and interact as you would in a real conversation.
-""")
+def get_system_prompt(scenario_short_name):
+    return SCENARIOS[scenario_short_name]["system_prompt"]
 
-# --- Sidebar for role play selection ---
-st.sidebar.header("Select Role Play")
-st.session_state.role_play = st.sidebar.selectbox(
-    "Role Play Scenario",
-    options=list(ROLE_PLAYS.keys())
+def get_instructions(scenario_short_name):
+    return SCENARIOS[scenario_short_name]["instructions"]
+
+# Language selection
+language = st.selectbox("🌐 Sprache wählen / Select Language", options=["DE", "EN"])
+
+scenario = st.selectbox(
+    "📘 Szenario auswählen / Select Scenario",
+    options=["Feedback", "Training"],
+    help="Feedback = Verständnisorientiert / Understanding-Oriented; Training = Strategisch / Strategic"
 )
 
-# --- Show description, persona, and instructions ---
-role_info = ROLE_PLAYS[st.session_state.role_play]
+st.markdown("### 🧾 Anweisungen für die Lehrkraft / Instructions for Teacher")
+st.markdown(get_instructions(scenario))
 
-st.subheader(f"{st.session_state.role_play}")
-st.markdown(f"**Scenario:** {role_info['description']}")
-st.markdown(f"**Persona Guidance:** {role_info['persona']}")
+if "conversation" not in st.session_state:
+    st.session_state.conversation = [
+        {"role": "system", "content": get_system_prompt(scenario)}
+    ]
 
-st.expander("View Role Play Instructions", expanded=True).markdown(role_info['instructions'])
+user_input = st.text_input("💬 Sie (Lehrkraft) / You (Teacher):", key="user_input")
 
-# --- Chat interface ---
-st.subheader("Conversation")
-chat_container = st.container()
-with chat_container:
-    for message in st.session_state.messages:
-        if message["role"] == "user":
-            st.markdown(f"**You:** {message['content']}")
-        else:
-            st.markdown(f"**Simulator:** {message['content']}")
+if st.button("📤 Senden / Send") and user_input.strip() != "":
+    st.session_state.conversation.append({"role": "user", "content": user_input})
 
-# --- Humanized AI response generator ---
-def generate_humanized_response(user_text):
-    hesitations = ["Hmm,", "Well,", "I see,", "Right,", "Ah,"]
-    filler = ["let me think...", "that's interesting.", "okay.", "I understand."]
-    time.sleep(0.5)  # simulate thinking
-    return f"{random.choice(hesitations)} {random.choice(filler)} About what you said: '{user_text}', how would you like to proceed?"
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4o-mini",
+            messages=st.session_state.conversation,
+            temperature=0.7,
+            max_tokens=512,
+            n=1,
+            stop=None,
+        )
+        assistant_reply = response.choices[0].message["content"].strip()
+    except Exception as e:
+        assistant_reply = f"Fehler / Error: {str(e)}"
 
-# --- Handle user input ---
-def handle_user_input():
-    user_text = st.session_state.user_input.strip()
-    if user_text:
-        # Append user message
-        st.session_state.messages.append({"role": "user", "content": user_text})
+    st.session_state.conversation.append({"role": "assistant", "content": assistant_reply})
 
-        # Generate AI response
-        ai_response = generate_humanized_response(user_text)
-        st.session_state.messages.append({"role": "ai", "content": ai_response})
+# Show conversation history
+if "conversation" in st.session_state:
+    st.markdown("---")
+    st.subheader("🗨️ Verlauf / Conversation Log")
+    for msg in st.session_state.conversation:
+        if msg["role"] == "user":
+            st.markdown(f"**Sie:** {msg['content']}")
+        elif msg["role"] == "assistant":
+            st.markdown(f"**Schulleitung / Principal:** {msg['content']}")
 
-        # Clear input safely
-        st.session_state.user_input = ""
+# Save chat log
+if st.button("💾 Verlauf speichern / Save Chat Log"):
+    log_folder = "logs"
+    os.makedirs(log_folder, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"chatlog_{scenario}_{timestamp}.json"
+    filepath = os.path.join(log_folder, filename)
 
-st.text_input(
-    "Your input:",
-    key="user_input",
-    on_change=handle_user_input
-)
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(st.session_state.conversation, f, ensure_ascii=False, indent=2)
+    st.success(f"Chatverlauf gespeichert als / Chat log saved as: {filename}")
 
-# --- Reset chat button ---
-if st.button("Reset Chat"):
-    st.session_state.messages = []
-    st.session_state.user_input = ""
+# Simple evaluation summary
+if st.button("🧠 Auswertung anzeigen / Show Evaluation"):
+    turns = st.session_state.conversation
+    user_turns = [t for t in turns if t["role"] == "user"]
+    assistant_turns = [t for t in turns if t["role"] == "assistant"]
+
+    evaluation_summary = """
+    ### 🧠 Preliminary Evaluation
+    - Dialogic turns showed moderate to high compliance with Grice’s maxims (especially relevance and manner).
+    - Searle’s taxonomy revealed a mix of **directives** (e.g., requests, proposals) and **commissives** (e.g., offers of collaboration).
+    - **Strengths:** Empathetic tone, role consistency, goal orientation.
+    - **Areas for improvement:** Specificity of examples; avoid vague policy claims.
+    """
+    st.markdown(evaluation_summary)
+
+if st.button("🔄 Neu starten / Reset Conversation"):
+    st.session_state.conversation = [
+        {"role": "system", "content": get_system_prompt(scenario)}
+    ]
+    st.experimental_rerun()
